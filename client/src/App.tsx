@@ -2,27 +2,16 @@
  * App — root component.
  *
  * Sets up React Router with two routes:
- *   /          → Board placeholder (TASK-004)
+ *   /          → Board page (TASK-004)
  *   /projects  → Projects page (TASK-003)
  *
  * Also renders the shared navigation rail and the aurora background layer.
  */
 
-import { BrowserRouter, Routes, Route, NavLink, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom'
 import { ProjectsPage } from './pages/ProjectsPage'
+import { BoardPage } from './pages/BoardPage'
 import './styles/design-system.css'
-
-/**
- * BoardPlaceholder — stub for the Kanban board page.
- * Replaced by the real board in TASK-004.
- */
-function BoardPlaceholder() {
-  return (
-    <div style={{ flex: 1, padding: 32, color: 'var(--text-faint)', fontFamily: 'var(--font-body)', fontSize: 14 }}>
-      Board — coming in TASK-004.
-    </div>
-  )
-}
 
 /**
  * NavRail — left navigation sidebar matching the Grove prototype.
@@ -108,11 +97,19 @@ function NavRail() {
   )
 }
 
+interface TopBarProps {
+  /** Called when "+ New task" is clicked. Wired to the drawer in TASK-005. */
+  onNewTask?: () => void
+}
+
 /**
- * TopBar — top header bar with view title and primary action button.
+ * TopBar — top header bar with route-aware title and primary action button.
+ * The "+ New task" button is a placeholder; it opens the task drawer in TASK-005.
  */
-function TopBar() {
-  const navigate = useNavigate()
+function TopBar({ onNewTask }: TopBarProps) {
+  const location = useLocation()
+  const isBoard = location.pathname === '/'
+  const title = isBoard ? 'Board' : 'Projects'
 
   return (
     <header style={{
@@ -131,11 +128,11 @@ function TopBar() {
           fontSize: 24, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: '-0.02em',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
-          Projects
+          {title}
         </h1>
       </div>
       <button
-        onClick={() => navigate('/')}
+        onClick={onNewTask}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 8,
           padding: '11px 18px', borderRadius: 14,
@@ -164,10 +161,11 @@ function AppShell() {
       <NavRail />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <TopBar />
+        {/* onNewTask is a no-op stub until TASK-005 wires the drawer */}
+        <TopBar onNewTask={undefined} />
 
         <Routes>
-          <Route path="/" element={<BoardPlaceholder />} />
+          <Route path="/" element={<BoardPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:id" element={<div style={{ padding: 32, color: 'var(--text-faint)' }}>Project detail — coming in TASK-008.</div>} />
         </Routes>
