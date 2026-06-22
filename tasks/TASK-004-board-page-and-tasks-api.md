@@ -92,3 +92,27 @@ Completed 2026-06-22.
 **Bug fixed during PM review:** status value `in-progress` corrected to `in_progress` to match DB schema.
 
 **All acceptance criteria met.** API smoke-tested live: project creation, task creation, GET /api/tasks all return correct responses.
+
+## QA Verdict — TASK-004 — 2026-06-22
+
+**Overall: PASS**
+
+**Criteria verified:**
+
+- [x] `GET /api/tasks` — returns tasks with project joined; `?projectIds=` filter works ✅ (live tested)
+- [x] `POST /api/tasks` — creates task; validates name, project_id, priority 1-4 ✅ (live tested)
+- [x] `PATCH /api/tasks/:id` — updates fields; `done_at` set on transition to done, null on leaving done; `in_progress` underscore correct ✅ (live tested)
+- [x] Board renders 5 columns ✅ (source: COLUMN_DEFS array)
+- [x] Done column 72h filter ✅ (source: DONE_CUTOFF_MS = 72 * 60 * 60 * 1000)
+- [x] Tasks sort by priority ascending within columns ✅ (source: `.sort((a, b) => a.priority - b.priority)`)
+- [x] Drag-and-drop via dnd-kit ✅ (source: DndContext, useDraggable, useDroppable)
+- [x] Backlog collapsible, state in cookie ✅ (source: getCookie/setCookie, backlogExpanded state)
+- [x] Filter pills per non-completed project, OR logic ✅ (source: active projects filter, projectIds passed to fetchTasks)
+- [x] Left nav Board + Projects links ✅ (NavRail in App.tsx)
+- [x] TopBar + New Task button ✅ (TopBar with onNewTask prop, dynamic title via useLocation)
+- [x] Horizontal scroll on narrow viewports ✅ (source: overflowX: 'auto' on board container)
+- [x] TypeScript compiles clean ✅ (npx tsc --noEmit returns 0)
+
+**Bugs filed:** None.
+
+**Notes:** No unit tests — not required for v1 (architecture doc). Live Playwright screenshots deferred to when dev server is running interactively.
