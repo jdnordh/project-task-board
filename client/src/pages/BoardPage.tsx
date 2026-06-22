@@ -18,6 +18,7 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
+import { BlockedReasonModal } from '../components/BlockedReasonModal'
 
 // ---- Types ----------------------------------------------------------------
 
@@ -34,6 +35,8 @@ export interface Task {
   updated_at: string
   project_name: string
   project_color: string
+  /** Most recent blocked_reasons.reason for this task; null if none. */
+  latest_blocked_reason: string | null
 }
 
 interface Project {
@@ -149,18 +152,30 @@ async function patchTaskStatus(id: number, status: string): Promise<Task> {
   return res.json()
 }
 
+async function postBlockedReason(taskId: number, reason: string): Promise<void> {
+  const res = await fetch(`/api/tasks/${taskId}/blocked-reasons`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason }),
+  })
+  if (!res.ok) throw new Error('Failed to save blocked reason')
+}
+
 // ---- TaskCard component ---------------------------------------------------
 
 interface TaskCardProps {
   task: Task
   isDragging?: boolean
+  /** When true, shows the latest blocked reason badge below the task name. */
+  inBlockedColumn?: boolean
 }
 
 /**
  * TaskCard — renders a single task card matching the Grove prototype design.
- * Shows task name, priority badge, and project color dot/left-border.
+ * Shows task name, priority badge, project color dot/left-border, and (when
+ * inBlockedColumn is true) the latest blocked reason as a danger badge.
  */
-function TaskCard({ task, isDragging = false }: TaskCardProps) {
+function TaskCard({ task, isDragging = false, inBlockedColumn = false }: TaskCardProps) {
   const pri = PRIORITY_MAP[task.priority] ?? PRIORITY_MAP[2]
 
   return (
@@ -275,6 +290,40 @@ function TaskCard({ task, isDragging = false }: TaskCardProps) {
       >
         {task.name}
       </div>
+
+      {/* Blocked reason badge — only shown in the Blocked column (matches prototype lines 148–153) */}
+      {inBlockedColumn && task.latest_blocked_reason && (
+        <div
+          style={{
+            marginTop: 9,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 6,
+            padding: '7px 9px',
+            borderRadius: 9,
+            background: 'var(--danger-soft)',
+            border: '1px solid var(--danger)',
+          }}
+        >
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--clay-400)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ flexShrink: 0, marginTop: 1 }}
+          >
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+            <path d="M12 9v4M12 17h.01" />
+          </svg>
+          <span style={{ fontSize: 11.5, lineHeight: 1.4, color: 'var(--clay-400)' }}>
+            {task.latest_blocked_reason}
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -283,12 +332,13 @@ function TaskCard({ task, isDragging = false }: TaskCardProps) {
 
 interface DraggableTaskCardProps {
   task: Task
+  inBlockedColumn?: boolean
 }
 
 /**
  * DraggableTaskCard — wraps TaskCard with dnd-kit's useDraggable hook.
  */
-function DraggableTaskCard({ task }: DraggableTaskCardProps) {
+function DraggableTaskCard({ task, inBlockedColumn = false }: DraggableTaskCardProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `task-${task.id}`,
     data: { task },
@@ -302,7 +352,7 @@ function DraggableTaskCard({ task }: DraggableTaskCardProps) {
       style={{ touchAction: 'none' }}
       className="grove-card"
     >
-      <TaskCard task={task} isDragging={isDragging} />
+      <TaskCard task={task} isDragging={isDragging} inBlockedColumn={inBlockedColumn} />
     </div>
   )
 }
@@ -513,7 +563,7 @@ function BoardColumn({ col, tasks, collapsed = false, overColumnKey, onToggleCol
         {/* Droppable card area */}
         <DroppableColumn columnKey={col.key} tasks={tasks} isOver={isOver}>
           {tasks.map((task) => (
-            <DraggableTaskCard key={task.id} task={task} />
+            <DraggableTaskCard key={task.id} task={task} inBlockedColumn={col.key === 'blocked'} />
           ))}
 
           {tasks.length === 0 && (
@@ -688,6 +738,9 @@ export function BoardPage() {
   })
   const [activeDragTask, setActiveDragTask] = useState<Task | null>(null)
   const [overColumnKey, setOverColumnKey] = useState<string | null>(null)
+  /** Task pending a move to Blocked — set when drag lands on blocked column. */
+  const [pendingBlockedTask, setPendingBlockedTask] = useState<Task | null>(null)
+  const [blockedModalOpen, setBlockedModalOpen] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -806,6 +859,13 @@ export function BoardPage() {
     if (!COLUMNS.find((c) => c.key === newStatus)) return
     if (task.status === newStatus) return
 
+    // Intercept drops to the blocked column — open modal before any status change.
+    if (newStatus === 'blocked') {
+      setPendingBlockedTask(task)
+      setBlockedModalOpen(true)
+      return
+    }
+
     // Optimistic update
     setTasks((prev) =>
       prev.map((t) =>
@@ -821,6 +881,43 @@ export function BoardPage() {
         prev.map((t) => (t.id === task.id ? { ...t, status: task.status, done_at: task.done_at } : t))
       )
     })
+  }
+
+  /**
+   * Called when the user confirms the blocked reason modal.
+   * Sequentially: POST blocked-reason → PATCH status to blocked → update local state.
+   * If POST fails, status is NOT updated.
+   */
+  async function handleBlockedConfirm(reason: string) {
+    const task = pendingBlockedTask
+    if (!task) return
+
+    setBlockedModalOpen(false)
+    setPendingBlockedTask(null)
+
+    try {
+      await postBlockedReason(task.id, reason)
+      await patchTaskStatus(task.id, 'blocked')
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id
+            ? { ...t, status: 'blocked', done_at: null, latest_blocked_reason: reason }
+            : t
+        )
+      )
+    } catch {
+      // Both failures leave the task in its original column — no revert needed
+      // because we never applied an optimistic update for blocked moves.
+    }
+  }
+
+  /**
+   * Called when the user cancels the blocked reason modal.
+   * Drag is already non-applied (no optimistic update was made), so just close.
+   */
+  function handleBlockedCancel() {
+    setBlockedModalOpen(false)
+    setPendingBlockedTask(null)
   }
 
   // ---- Render -------------------------------------------------------------
@@ -905,6 +1002,15 @@ export function BoardPage() {
           {activeDragTask ? <TaskCard task={activeDragTask} isDragging /> : null}
         </DragOverlay>
       </DndContext>
+
+      {/* Blocked reason modal — shown when a task is dragged into the Blocked column */}
+      {blockedModalOpen && pendingBlockedTask && (
+        <BlockedReasonModal
+          taskName={pendingBlockedTask.name}
+          onConfirm={handleBlockedConfirm}
+          onCancel={handleBlockedCancel}
+        />
+      )}
     </div>
   )
 }
