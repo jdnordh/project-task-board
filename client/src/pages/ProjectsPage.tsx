@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 // ---- Types ----------------------------------------------------------------
 
@@ -398,16 +399,18 @@ interface ActiveProjectCardProps {
   project: Project
   onComplete: (id: number) => void
   onDeleteClick: (p: Project) => void
+  onNavigate: (id: number) => void
 }
 
 /**
  * ActiveProjectCard — card with color stripe, icon, progress bar,
- * and "Mark complete" button.
+ * and "Mark complete" button. Clicking the card body navigates to the project detail page.
  */
-function ActiveProjectCard({ project, onComplete, onDeleteClick }: ActiveProjectCardProps) {
+function ActiveProjectCard({ project, onComplete, onDeleteClick, onNavigate }: ActiveProjectCardProps) {
   return (
     <div
       className="grove-card"
+      onClick={() => onNavigate(project.id)}
       style={{
         position: 'relative', overflow: 'hidden',
         padding: 18, borderRadius: 18,
@@ -546,14 +549,17 @@ interface CompletedProjectRowProps {
   project: Project
   onReopen: (id: number) => void
   onDeleteClick: (p: Project) => void
+  onNavigate: (id: number) => void
 }
 
 /**
  * CompletedProjectRow — compact row for completed projects.
+ * Clicking the row body navigates to the project detail page.
  */
-function CompletedProjectRow({ project, onReopen, onDeleteClick }: CompletedProjectRowProps) {
+function CompletedProjectRow({ project, onReopen, onDeleteClick, onNavigate }: CompletedProjectRowProps) {
   return (
     <div
+      onClick={() => onNavigate(project.id)}
       style={{
         position: 'relative', padding: '16px 18px', borderRadius: 18,
         background: 'var(--surface-1)',
@@ -617,6 +623,7 @@ function CompletedProjectRow({ project, onReopen, onDeleteClick }: CompletedProj
  * ProjectsPage — root component for the /projects route.
  */
 export function ProjectsPage() {
+  const navigate = useNavigate()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -716,6 +723,7 @@ export function ProjectsPage() {
               project={p}
               onComplete={handleComplete}
               onDeleteClick={setDeleteTarget}
+              onNavigate={(id) => navigate(`/projects/${id}`)}
             />
           ))}
         </div>
@@ -734,6 +742,7 @@ export function ProjectsPage() {
                 project={p}
                 onReopen={handleComplete}
                 onDeleteClick={setDeleteTarget}
+                onNavigate={(id) => navigate(`/projects/${id}`)}
               />
             ))}
           </div>

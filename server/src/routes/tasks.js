@@ -2,27 +2,36 @@
  * routes/tasks.js — Express router for /api/tasks.
  *
  * Endpoints:
- *   GET   /api/tasks        — list tasks, joined with project; optional ?projectIds=1,2,3
- *   POST  /api/tasks        — create a task
- *   PATCH /api/tasks/:id    — partial update; manages done_at on status transitions
+ *   GET    /api/tasks                        — list tasks, joined with project; optional ?projectIds=1,2,3
+ *   POST   /api/tasks                        — create a task
+ *   GET    /api/tasks/:id                    — single task with subtasks and session_minutes
+ *   PATCH  /api/tasks/:id                    — partial update; manages done_at on status transitions
+ *   DELETE /api/tasks/:id                    — delete task (cascades subtasks, blocked_reasons, time_sessions)
+ *   POST   /api/tasks/:id/subtasks           — create a subtask under a task
+ *   DELETE /api/tasks/:id/subtasks           — delete all subtasks (replace-all helper)
+ *   POST   /api/tasks/:id/blocked-reasons    — add a blocked reason row for a task
+ *   GET    /api/tasks/:id/blocked-reasons    — return all blocked reasons for a task, newest first
  */
 
 const express = require('express');
 const db = require('../db');
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
 /** Valid status values for the tasks table. */
 const VALID_STATUSES = ['backlog', 'ready', 'in_progress', 'blocked', 'done'];
 
 /**
  * GET /api/tasks
- * Returns all tasks with their project (id, name, color) joined.
- * Optional query param: ?projectIds=1,2,3 (comma-separated, OR logic).
+ * Returns all tasks with their project (id, name, color) joined, plus
+ * latest_blocked_reason from the most recent blocked_reasons row per task.
+ * Optional query params:
+ *   ?projectId=N        — returns ALL tasks for one project (no age filter); used by Project Detail.
+ *   ?projectIds=1,2,3   — OR filter across multiple projects; used by the Board's filter pills.
  */
 router.get('/', (req, res) => {
   try {
-    const { projectIds } = req.query;
+    const { projectIds, projectId } = req.query;
 
     let sql = `
       SELECT
@@ -37,14 +46,32 @@ router.get('/', (req, res) => {
         t.created_at,
         t.updated_at,
         p.name  AS project_name,
-        p.color AS project_color
+        p.color AS project_color,
+        br.reason AS latest_blocked_reason
       FROM tasks t
       JOIN projects p ON p.id = t.project_id
+      LEFT JOIN blocked_reasons br
+        ON br.task_id = t.id
+        AND br.id = (
+          SELECT id FROM blocked_reasons
+          WHERE task_id = t.id
+          ORDER BY created_at DESC
+          LIMIT 1
+        )
     `;
 
     let tasks;
-    if (projectIds) {
-      // Parse and sanitize to integers only
+    if (projectId !== undefined) {
+      // Singular ?projectId=N — returns ALL tasks for one project, no status/age filter.
+      // Used by the Project Detail page to show full task history including old done tasks.
+      const id = parseInt(String(projectId), 10);
+      if (isNaN(id)) {
+        return res.json([]);
+      }
+      sql += ` WHERE t.project_id = ? ORDER BY t.created_at ASC`;
+      tasks = db.prepare(sql).all(id);
+    } else if (projectIds) {
+      // Plural ?projectIds=1,2,3 — OR filter for the Board's project filter pills.
       const ids = projectIds
         .split(',')
         .map((s) => parseInt(s.trim(), 10))
@@ -118,6 +145,37 @@ router.post('/', (req, res) => {
     res.status(201).json(task);
   } catch (err) {
     console.error('POST /api/tasks error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /api/tasks/:id
+ * Returns a single task with project info, subtasks array, and session_minutes
+ * (sum of time_sessions.minutes for auto-tracked time).
+ */
+router.get('/:id', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const task = db.prepare(`
+      SELECT t.*, p.name AS project_name, p.color AS project_color, p.billable AS project_billable
+      FROM tasks t JOIN projects p ON p.id = t.project_id
+      WHERE t.id = ?
+    `).get(id);
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const subtasks = db.prepare('SELECT * FROM subtasks WHERE task_id = ? ORDER BY id').all(id);
+
+    const sessionRow = db.prepare(
+      'SELECT COALESCE(SUM(minutes), 0) AS total FROM time_sessions WHERE task_id = ? AND minutes IS NOT NULL'
+    ).get(id);
+
+    res.json({ ...task, subtasks, session_minutes: sessionRow.total });
+  } catch (err) {
+    console.error('GET /api/tasks/:id error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -215,6 +273,135 @@ router.patch('/:id', (req, res) => {
     res.json(task);
   } catch (err) {
     console.error('PATCH /api/tasks/:id error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * DELETE /api/tasks/:id
+ * Permanently removes the task. FK ON DELETE CASCADE removes subtasks,
+ * blocked_reasons, and time_sessions automatically.
+ */
+router.delete('/:id', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const existing = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
+    res.status(204).end();
+  } catch (err) {
+    console.error('DELETE /api/tasks/:id error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/tasks/:id/subtasks
+ * Body: { label, checked? }
+ * Creates a subtask under the given task.
+ */
+router.post('/:id/subtasks', (req, res) => {
+  try {
+    const taskId = Number(req.params.id);
+    const task = db.prepare('SELECT id FROM tasks WHERE id = ?').get(taskId);
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const { label, checked = false } = req.body || {};
+    if (!label || typeof label !== 'string' || !label.trim()) {
+      return res.status(400).json({ errors: ['label is required'] });
+    }
+
+    const result = db.prepare(
+      'INSERT INTO subtasks (task_id, label, checked) VALUES (?, ?, ?)'
+    ).run(taskId, label.trim(), checked ? 1 : 0);
+
+    const subtask = db.prepare('SELECT * FROM subtasks WHERE id = ?').get(result.lastInsertRowid);
+    res.status(201).json(subtask);
+  } catch (err) {
+    console.error('POST /api/tasks/:id/subtasks error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * DELETE /api/tasks/:id/subtasks
+ * Removes ALL subtasks for the task. Used by the replace-all sync strategy on drawer save.
+ */
+router.delete('/:id/subtasks', (req, res) => {
+  try {
+    const taskId = Number(req.params.id);
+    const task = db.prepare('SELECT id FROM tasks WHERE id = ?').get(taskId);
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    db.prepare('DELETE FROM subtasks WHERE task_id = ?').run(taskId);
+    res.status(204).end();
+  } catch (err) {
+    console.error('DELETE /api/tasks/:id/subtasks error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/tasks/:id/blocked-reasons
+ * Body: { reason: string }
+ * Creates a new blocked_reason row for the given task. Each call appends to
+ * history — existing rows are never overwritten.
+ * Returns the newly created row.
+ */
+router.post('/:id/blocked-reasons', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const existing = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const { reason } = req.body || {};
+    if (!reason || typeof reason !== 'string' || !reason.trim()) {
+      return res.status(400).json({ errors: ['reason is required and must be a non-empty string'] });
+    }
+
+    const now = new Date().toISOString();
+    const result = db
+      .prepare('INSERT INTO blocked_reasons (task_id, reason, created_at) VALUES (?, ?, ?)')
+      .run(id, reason.trim(), now);
+
+    const row = db
+      .prepare('SELECT * FROM blocked_reasons WHERE id = ?')
+      .get(result.lastInsertRowid);
+
+    res.status(201).json(row);
+  } catch (err) {
+    console.error('POST /api/tasks/:id/blocked-reasons error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /api/tasks/:id/blocked-reasons
+ * Returns all blocked_reason rows for the given task, ordered by created_at DESC
+ * (most recent first). Returns an empty array if none exist.
+ */
+router.get('/:id/blocked-reasons', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const existing = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const rows = db
+      .prepare('SELECT * FROM blocked_reasons WHERE task_id = ? ORDER BY created_at DESC')
+      .all(id);
+
+    res.json(rows);
+  } catch (err) {
+    console.error('GET /api/tasks/:id/blocked-reasons error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

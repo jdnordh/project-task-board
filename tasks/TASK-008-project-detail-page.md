@@ -45,3 +45,45 @@ Yes — navigate from Projects page to a project; see all tasks including done t
 
 ## Priority
 medium
+
+---
+
+## Completion Summary
+
+### What was built
+
+**Server changes:**
+- `server/src/routes/projects.js` — Added `GET /api/projects/:id` endpoint that returns a single project with task counts and boolean-normalized fields.
+- `server/src/routes/tasks.js` — Added `?projectId=N` (singular) support to `GET /api/tasks`. Returns ALL tasks for a project with no age/status filter, ordered by `created_at ASC`. Existing `?projectIds=` (plural, board filter) is unchanged.
+
+**Client changes:**
+- `client/src/pages/ProjectDetailPage.tsx` — New page component. Fetches project metadata and all tasks in parallel. Shows project header (name, color icon, color dot, billable badge, completed badge, task count). Task list is grouped by status in order: In Progress, Blocked, Ready, Backlog, Done. Each `TaskRow` is clickable via optional `onTaskClick?: (task: Task) => void` prop (to be wired to TaskDrawer in TASK-005). "Back to Projects" link at top.
+- `client/src/App.tsx` — Replaced stub route `<div>Project detail — coming in TASK-008.</div>` with `<ProjectDetailPage />`.
+- `client/src/pages/ProjectsPage.tsx` — Added `useNavigate` to both `ActiveProjectCard` and `CompletedProjectRow`. Clicking the card/row body calls `navigate('/projects/:id')`. Inner action buttons (mark complete, delete, reopen) already used `e.stopPropagation()`.
+
+**Feedback loop change:**
+- `feedback/tests/screenshots.spec.ts` — Added a third screenshot test that navigates from the Projects page to the first project detail page and captures `feedback/screenshots/project-detail.png`.
+
+### Acceptance Criteria
+- [x] Route `/projects/:id` renders the Project Detail sub-page
+- [x] `GET /api/projects/:id` — returns project metadata (name, color, billable, completed, created_at)
+- [x] `GET /api/tasks?projectId=:id` — returns ALL tasks for a project (all statuses, no 72h filter)
+- [x] Project Detail page shows: project name, color dot/badge, billable indicator, and complete status
+- [x] Task list shows all tasks for the project grouped by status
+- [x] Each task row/card is clickable — `onTaskClick` prop accepted; wiring to TaskDrawer deferred to TASK-005
+- [x] "Back to Projects" navigation link
+- [x] Done tasks older than 72h appear here (no age filter applied server-side)
+- [x] Projects page: project name/card is now a working link to `/projects/:id`
+
+### Deviations from Implementation Notes
+- None. Added `?projectId=` alongside `?projectIds=` in the existing tasks route as specified.
+- `onTaskClick` prop is optional and no-op when not provided; click cursor is only shown when the prop is present.
+
+### New ADRs
+None.
+
+### Follow-up tasks
+None filed. Wiring `onTaskClick` to the TaskDrawer is handled by TASK-005.
+
+### Screenshots
+Run `npm run dev` then `npm run feedback` to generate `feedback/screenshots/project-detail.png`.

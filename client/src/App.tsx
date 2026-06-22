@@ -11,6 +11,7 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { BoardPage } from './pages/BoardPage'
+import { ProjectDetailPage } from './pages/ProjectDetailPage'
 import './styles/design-system.css'
 
 /**
@@ -167,7 +168,7 @@ function AppShell() {
         <Routes>
           <Route path="/" element={<BoardPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/projects/:id" element={<div style={{ padding: 32, color: 'var(--text-faint)' }}>Project detail — coming in TASK-008.</div>} />
+          <Route path="/projects/:id" element={<ProjectDetailPage />} />
         </Routes>
       </div>
     </div>

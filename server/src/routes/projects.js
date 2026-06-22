@@ -151,6 +151,37 @@ router.patch('/:id', (req, res) => {
 });
 
 /**
+ * GET /api/projects/:id
+ * Returns a single project by id with task counts.
+ * Returns 404 if not found.
+ */
+router.get('/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const project = db.prepare(`
+    SELECT
+      p.*,
+      COUNT(t.id)                           AS task_count,
+      SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END) AS done_count
+    FROM projects p
+    LEFT JOIN tasks t ON t.project_id = p.id
+    WHERE p.id = ?
+    GROUP BY p.id
+  `).get(id);
+
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  res.json({
+    ...project,
+    billable: project.billable === 1 || project.billable === true,
+    completed: project.completed === 1 || project.completed === true,
+    task_count: Number(project.task_count) || 0,
+    done_count: Number(project.done_count) || 0,
+  });
+});
+
+/**
  * DELETE /api/projects/:id
  * Cascades to all child tasks (and their subtasks, blocked_reasons, time_sessions via FK).
  * Returns { deleted_task_count: number }.
