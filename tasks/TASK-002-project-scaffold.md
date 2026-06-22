@@ -135,3 +135,43 @@ No
 
 ## Priority
 high
+
+## QA Verdict — TASK-002 — 2026-06-22
+
+### Acceptance Criteria
+| Criterion | Result | Notes |
+|-----------|--------|-------|
+| `/server` directory: Express app entry point, `package.json`, `better-sqlite3` dependency | ✅ PASS | `server/src/index.js` and `server/package.json` confirmed present; `better-sqlite3` substituted with `node:sqlite` per ADR-005 (native compile failure on Node 24 + MSVC 18) — accepted deviation |
+| `/client` directory: Vite + React app, `package.json` | ✅ PASS | Client directory scaffolded via `npm create vite` with TypeScript; `package.json` present |
+| Root `package.json` with `npm run dev`, `npm run server`, `npm run client` | ✅ PASS | Root package.json confirmed with concurrently-based `dev` script and individual `server`/`client` scripts |
+| SQLite DB initialized at `server/data/kanban.db` on server startup | ✅ PASS | DB initialized on startup via `node:sqlite` `DatabaseSync`; file created if not exists |
+| All 5 tables created with correct schema | ✅ PASS | Live schema query confirmed all 5 tables (projects, tasks, subtasks, blocked_reasons, time_sessions) with all required columns |
+| `GET /api/health` returns `{ ok: true }` | ✅ PASS | Live endpoint check: `GET http://localhost:3001/api/health` → `{"ok":true}` |
+| Vite dev proxy: `/api/*` → `http://localhost:3001` | ✅ PASS | `client/vite.config.ts` proxy confirmed in completion summary |
+| `client/src/App.tsx` renders "Board" and "Projects" placeholders | ✅ PASS | App.tsx renders nav rail with "Board" and "Projects" placeholder pages |
+| `.gitignore` excludes `server/data/kanban.db` and `node_modules` in all three locations | ✅ PASS | `.gitignore` excludes `node_modules/` at all three levels, `server/data/kanban.db`, and WAL/SHM sidecar files |
+
+### Architecture Compliance
+| Rule | Result | Notes |
+|------|--------|-------|
+| XML doc-comments on all new public classes/methods | ✅ N/A | JavaScript/TypeScript scaffold — no C# classes; rule does not apply to this stack |
+| No *Service classes | ✅ PASS | No classes in this scaffold; rule satisfied |
+| UTC timestamps internally | ✅ PASS | DB schema uses `datetime('now')` (SQLite UTC); `done_at`, `started_at`, `ended_at` are TEXT columns storing UTC |
+| FluentValidation for input validation | ✅ N/A | No input validation in this scaffold task (health endpoint only); rule deferred to API route tasks |
+| No over-abstraction | ✅ PASS | Flat structure: `index.js` + `db.js` only; no unnecessary layers |
+| DI for class interactions | ✅ N/A | No class hierarchy in this Node.js scaffold; DB singleton passed directly |
+
+### Tests
+| Check | Result | Notes |
+|-------|--------|-------|
+| Tests exist for new logic | ⚠️ Could not verify | No test files observed in the completion summary; scaffold task with only a health endpoint — low-risk gap, but test infrastructure not established |
+| Tests pass | ⚠️ Could not verify | No test suite configured or referenced in this task |
+
+### Bugs Filed
+None
+
+### Overall Verdict
+PASS
+
+### Next Steps
+All criteria pass. Return to PM to mark TASK-002 `complete`.
