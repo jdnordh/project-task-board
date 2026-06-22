@@ -1,0 +1,316 @@
+/* ============================================================
+   Tech Forest Design System — bundled tokens for React client
+   Sourced from prototypes/_ds/tech-forest-design-system-*/
+   ============================================================ */
+
+/* Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  /* ---- Ink — green-tinted dark base scale */
+  --ink-950: #050806;
+  --ink-900: #080d0a;
+  --ink-850: #0b120e;
+  --ink-800: #0f1813;
+  --ink-750: #141f18;
+  --ink-700: #1a281f;
+  --ink-650: #213227;
+  --ink-600: #2b4032;
+  --ink-550: #375140;
+
+  /* ---- Mist — light neutrals */
+  --mist-50:  #f0f6f1;
+  --mist-100: #dfeae1;
+  --mist-200: #c2d3c6;
+  --mist-300: #9bb1a1;
+  --mist-400: #74897b;
+  --mist-500: #586a5e;
+  --mist-600: #3f4d44;
+
+  /* ---- Canopy — primary living-green accent */
+  --canopy-200: #bbf7d0;
+  --canopy-300: #86efac;
+  --canopy-400: #4ade80;
+  --canopy-500: #22c55e;
+  --canopy-600: #16a34a;
+  --canopy-700: #15803d;
+  --canopy-800: #14532d;
+  --canopy-900: #0c3320;
+
+  /* ---- Moss */
+  --moss-300: #a7c4a0;
+  --moss-400: #82a378;
+  --moss-500: #5f8154;
+  --moss-600: #466239;
+
+  /* ---- Sunlight */
+  --sun-300: #fcd97a;
+  --sun-400: #f5c542;
+  --sun-500: #e0a82e;
+
+  /* ---- Dew */
+  --dew-300: #7eead8;
+  --dew-400: #45d3bb;
+  --dew-500: #1fb39a;
+
+  /* ---- Raw semantic hues */
+  --clay-400: #f0876a;
+  --clay-500: #e2613f;
+  --amber-400: #f5c542;
+  --teal-400: #45d3bb;
+
+  /* ---- Semantic aliases */
+  --bg-sunken:    var(--ink-950);
+  --bg-base:      var(--ink-900);
+  --surface-1:    var(--ink-850);
+  --surface-2:    var(--ink-800);
+  --surface-3:    var(--ink-750);
+  --surface-card: var(--ink-850);
+  --surface-raised: var(--ink-800);
+
+  --border-subtle:  rgba(122, 168, 134, 0.10);
+  --border-default: rgba(122, 168, 134, 0.18);
+  --border-strong:  rgba(122, 168, 134, 0.30);
+  --border-focus:   var(--canopy-400);
+
+  --text-strong: var(--mist-50);
+  --text-body:   var(--mist-200);
+  --text-muted:  var(--mist-400);
+  --text-faint:  var(--mist-500);
+  --text-on-accent: var(--ink-950);
+
+  --accent:         var(--canopy-400);
+  --accent-strong:  var(--canopy-500);
+  --accent-press:   var(--canopy-600);
+  --accent-soft:    rgba(74, 222, 128, 0.12);
+  --accent-soft-2:  rgba(74, 222, 128, 0.20);
+  --accent-glow:    rgba(74, 222, 128, 0.45);
+  --accent-contrast: var(--ink-950);
+
+  --secondary:   var(--moss-400);
+  --highlight:   var(--sun-400);
+  --link:        var(--dew-300);
+
+  --success: var(--canopy-400);
+  --success-soft: rgba(74, 222, 128, 0.14);
+  --warning: var(--sun-400);
+  --warning-soft: rgba(245, 197, 66, 0.14);
+  --danger:  var(--clay-400);
+  --danger-soft: rgba(240, 135, 106, 0.14);
+  --info:    var(--dew-400);
+  --info-soft: rgba(69, 211, 187, 0.14);
+
+  /* ---- Typography */
+  --font-display: 'Archivo', 'Archivo Expanded', system-ui, sans-serif;
+  --font-body:    'Manrope', system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+  --display-stretch: 125%;
+
+  --text-2xs: 0.6875rem;
+  --text-xs:  0.75rem;
+  --text-sm:  0.875rem;
+  --text-base: 1rem;
+  --text-md:  1.125rem;
+  --text-lg:  1.375rem;
+  --text-xl:  1.75rem;
+  --text-2xl: 2.25rem;
+
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --weight-heavy:    800;
+  --weight-black:    900;
+
+  --leading-none:  1;
+  --leading-tight: 1.1;
+  --leading-snug:  1.28;
+  --leading-body:  1.6;
+  --leading-loose: 1.8;
+
+  --tracking-tighter: -0.04em;
+  --tracking-tight:   -0.02em;
+  --tracking-normal:  0;
+  --tracking-wide:    0.04em;
+  --tracking-wider:   0.12em;
+  --tracking-widest:  0.22em;
+
+  /* ---- Spacing */
+  --space-1:  0.25rem;
+  --space-2:  0.5rem;
+  --space-3:  0.75rem;
+  --space-4:  1rem;
+  --space-5:  1.25rem;
+  --space-6:  1.5rem;
+  --space-8:  2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* ---- Radii */
+  --radius-xs:   6px;
+  --radius-sm:   10px;
+  --radius-md:   14px;
+  --radius-lg:   20px;
+  --radius-xl:   28px;
+  --radius-2xl:  40px;
+  --radius-pill: 999px;
+
+  /* ---- Shadows */
+  --shadow-xs:  0 1px 2px rgba(0,0,0,0.4);
+  --shadow-sm:  0 2px 8px rgba(0,0,0,0.35);
+  --shadow-md:  0 10px 28px -8px rgba(0,0,0,0.55);
+  --shadow-lg:  0 26px 60px -18px rgba(0,0,0,0.65);
+  --shadow-xl:  0 40px 90px -28px rgba(0,0,0,0.7);
+  --ring-inset: inset 0 1px 0 rgba(255,255,255,0.04);
+  --glow-accent:  0 0 0 1px rgba(74,222,128,0.35), 0 8px 30px -6px rgba(34,197,94,0.35);
+  --glow-accent-lg: 0 0 0 1px rgba(74,222,128,0.4), 0 14px 60px -10px rgba(34,197,94,0.5);
+  --glow-focus:   0 0 0 3px rgba(74,222,128,0.28);
+
+  /* ---- Blur */
+  --blur-sm: blur(8px);
+  --blur-md: blur(18px);
+  --blur-lg: blur(32px);
+
+  /* ---- Gradients */
+  --grad-canopy: linear-gradient(135deg, #6ee79b 0%, #22c55e 55%, #15803d 100%);
+  --grad-canopy-soft: linear-gradient(135deg, rgba(110,231,155,0.22), rgba(21,128,61,0.10));
+  --grad-forest: radial-gradient(120% 80% at 50% -10%, #0f1f15 0%, #080d0a 55%, #050806 100%);
+  --grad-sun: linear-gradient(135deg, #fcd97a, #e0a82e);
+
+  /* ---- Motion */
+  --ease-grow:   cubic-bezier(0.22, 0.78, 0.20, 1);
+  --ease-sway:   cubic-bezier(0.45, 0.05, 0.20, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-soft:   cubic-bezier(0.4, 0, 0.2, 1);
+
+  --dur-instant: 90ms;
+  --dur-fast:    160ms;
+  --dur-base:    260ms;
+  --dur-slow:    440ms;
+  --dur-slower:  720ms;
+  --dur-breathe: 7s;
+  --dur-sway:    9s;
+}
+
+/* ---- Base reset */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+  min-height: 100vh;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  font-weight: var(--weight-regular);
+  color: var(--text-body);
+  background: var(--grad-forest) fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-stretch: var(--display-stretch);
+  color: var(--text-strong);
+  font-weight: var(--weight-heavy);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  margin: 0;
+}
+
+a { color: var(--link); text-decoration: none; }
+a:hover { color: var(--canopy-300); }
+
+::selection { background: var(--accent-soft-2); color: var(--mist-50); }
+
+* { scrollbar-color: var(--ink-600) transparent; scrollbar-width: thin; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--ink-650);
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--ink-600); background-clip: content-box; }
+
+/* ---- Aurora background */
+.tf-aurora {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: radial-gradient(ellipse 55% 48% at 55% 95%, rgba(21,128,61,0.28) 0%, transparent 65%);
+  animation: tf-aurora-b3 28s var(--ease-soft) infinite;
+}
+
+.tf-aurora::before {
+  content: '';
+  position: absolute;
+  width: 72%; height: 72%;
+  border-radius: 50%;
+  top: -25%; left: -15%;
+  background: rgba(74, 222, 128, 0.20);
+  filter: blur(72px);
+  animation: tf-aurora-b1 16s var(--ease-soft) infinite;
+}
+
+.tf-aurora::after {
+  content: '';
+  position: absolute;
+  width: 56%; height: 56%;
+  border-radius: 50%;
+  top: -18%; right: -14%;
+  background: rgba(69, 211, 187, 0.16);
+  filter: blur(64px);
+  animation: tf-aurora-b2 22s var(--ease-soft) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tf-aurora,
+  .tf-aurora::before,
+  .tf-aurora::after { animation: none; }
+}
+
+/* ---- Keyframes */
+@keyframes tf-aurora-b1 {
+  0%,100% { transform: translate(0%, 0%); }
+  25%     { transform: translate(55%, 45%); }
+  50%     { transform: translate(78%, 82%); }
+  75%     { transform: translate(18%, 90%); }
+}
+@keyframes tf-aurora-b2 {
+  0%,100% { transform: translate(0%, 0%); }
+  33%     { transform: translate(-52%, 55%); }
+  66%     { transform: translate(-18%, 82%); }
+}
+@keyframes tf-aurora-b3 {
+  0%,100% { transform: translate(0%, 0%); }
+  30%     { transform: translate(-22%, -18%); }
+  60%     { transform: translate(20%, -12%); }
+}
+
+/* ---- Grove animations used in the app */
+.grove-card { animation: grove-rise var(--dur-base) var(--ease-grow) both; }
+.grove-overlay { animation: grove-pop var(--dur-fast) var(--ease-spring) both; }
+.grove-drawer { animation: grove-slide var(--dur-base) var(--ease-grow) both; }
+
+@keyframes grove-rise {
+  from { transform: translateY(9px) scale(0.985); }
+  to   { transform: translateY(0) scale(1); }
+}
+@keyframes grove-pop {
+  from { transform: scale(0.965); }
+  to   { transform: scale(1); }
+}
+@keyframes grove-slide {
+  from { transform: translateX(40px); }
+  to   { transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grove-card, .grove-overlay, .grove-drawer { animation: none; }
+}

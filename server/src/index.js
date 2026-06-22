@@ -10,6 +10,9 @@ const express = require('express');
 // Import db singleton to trigger schema initialisation on startup.
 require('./db');
 
+const { router: projectsRouter } = require('./routes/projects');
+const tasksRouter = require('./routes/tasks');
+
 const app = express();
 const PORT = 3001;
 
@@ -22,6 +25,9 @@ app.use(express.json());
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
 });
+
+app.use('/api/projects', projectsRouter);
+app.use('/api/tasks', tasksRouter);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
