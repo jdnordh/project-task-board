@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "npm --prefix server start",
-    "client": "npm --prefix client run dev"
+    "client": "npm --prefix client run dev",
+    "feedback": "playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",
