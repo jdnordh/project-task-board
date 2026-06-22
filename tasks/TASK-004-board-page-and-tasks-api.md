@@ -78,3 +78,17 @@ Yes — show Board with drag-and-drop, filter pills, and priority sorting workin
 
 ## Priority
 high
+
+## Completion Summary
+
+Completed 2026-06-22.
+
+**What was built:**
+- `client/src/pages/BoardPage.tsx` (910 lines) — 5-column Kanban board using dnd-kit. Columns: Backlog (collapsible via cookie), Ready, In Progress, Blocked, Done (72h filter). Task cards show name, priority badge (color-coded 1–4), project color dot. Drag-and-drop between columns calls PATCH /api/tasks/:id to persist status. Filter pills above board (one per non-completed project, OR logic). Horizontal scroll on narrow viewports.
+- `client/src/App.tsx` — updated: BoardPage replacing BoardPlaceholder, TopBar uses useLocation for dynamic title ("Board"/"Projects"), onNewTask prop wired for TASK-005.
+- dnd-kit installed: @dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities.
+- Tasks API (`server/src/routes/tasks.js`) was built alongside — GET/POST/PATCH with done_at transition logic and in_progress (underscore) status values.
+
+**Bug fixed during PM review:** status value `in-progress` corrected to `in_progress` to match DB schema.
+
+**All acceptance criteria met.** API smoke-tested live: project creation, task creation, GET /api/tasks all return correct responses.
