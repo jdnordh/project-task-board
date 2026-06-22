@@ -44,6 +44,17 @@
 
 ---
 
+## [ADR-005] node:sqlite instead of better-sqlite3
+- **Date:** 2026-06-22
+- **Status:** Decided
+- **Context:** better-sqlite3 v9.6.0 requires native compilation via node-gyp. On Node 24 + VS BuildTools 2026 (MSVC 18), the C++ standard flag `/std:c++17` overrides the required `/std:c++20`, causing the build to fail. No prebuilt binary was available for Node 24.14.1 on win32.
+- **Decision:** Use Node.js built-in `node:sqlite` (`DatabaseSync`) introduced in Node 22.5 and stable in Node 24.
+- **Rationale:** Zero native compilation, no external dependency, same synchronous API surface. Experimental warning is acceptable for a local-only tool.
+- **Alternatives Considered:** better-sqlite3 v12+ (still requires native compilation, same MSVC issue); sql.js (WASM, no sync API); downgrading Node (unnecessary churn).
+- **Consequences:** Dependency on Node ≥ 22.5. API is `DatabaseSync` from `node:sqlite` — pragmas via `db.exec('PRAGMA ...')` instead of `db.pragma(...)`.
+
+---
+
 <!-- Copy the block above for each new ADR. Number sequentially. -->
 <!-- Interpolated decisions are marked: *(interpolated from Jordan's patterns)* in the Rationale field. -->
 <!-- Status values: Decided (final), Proposed (pending Jordan's approval), Superseded (replaced by a later ADR) -->

@@ -2,3 +2,19 @@
 /version-upgrades
 /doc-templates
 /prototypes
+
+# node_modules in root, server, and client
+node_modules/
+server/node_modules/
+client/node_modules/
+
+# SQLite database file (created at runtime)
+server/data/kanban.db
+server/data/kanban.db-shm
+server/data/kanban.db-wal
+
+# Vite build output
+client/dist/
+
+# TypeScript build info
+*.tsbuildinfo

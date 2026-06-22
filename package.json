@@ -1,0 +1,31 @@
+{
+  "name": "project-task-board",
+  "version": "1.0.0",
+  "description": "Local Kanban board — root workspace scripts",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "npm --prefix server start",
+    "client": "npm --prefix client run dev"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.0",
+    "concurrently": "^9.1.0"
+  },
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jdnordh/project-task-board.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/jdnordh/project-task-board/issues"
+  },
+  "homepage": "https://github.com/jdnordh/project-task-board#readme"
+}

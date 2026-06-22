@@ -100,6 +100,32 @@ See `docs/architecture.md` for full architecture decisions. See `docs/decisions.
 - Any real UI components
 - Time session management logic
 
+## Completion Summary
+
+**Status:** Complete
+
+**What was built:**
+
+- `server/` — Express app (`src/index.js`) with `GET /api/health` returning `{ ok: true }`. DB singleton (`src/db.js`) uses Node.js built-in `node:sqlite` (`DatabaseSync`) to open/create `server/data/kanban.db` and initialize all 5 schema tables on startup. Foreign-key enforcement and WAL journal mode are enabled. Orphaned time sessions are auto-closed on startup.
+- `client/` — Vite + React + TypeScript app scaffolded via `npm create vite`. `vite.config.ts` proxies `/api/*` to `http://localhost:3001`. `src/App.tsx` renders a nav rail with placeholder "Board" and "Projects" pages.
+- Root `package.json` — `npm run dev` uses `concurrently` to start both server (`npm run server`) and client (`npm run client`).
+- `.gitignore` — excludes `node_modules/` in all three locations, `server/data/kanban.db` (and WAL/SHM sidecar files), and `client/dist/`.
+
+**node:sqlite substitution (ADR-005):**
+
+`better-sqlite3` could not compile on Node 24 + MSVC 18 (VS BuildTools 2026) because the C++ standard flag `/std:c++17` overrides the required `/std:c++20`. No prebuilt binary was available for Node 24.14.1 on win32. The solution was to switch to the Node.js built-in `node:sqlite` module (`DatabaseSync`), available since Node 22.5 and stable in Node 24. This eliminates native compilation entirely. `better-sqlite3` was removed from `server/package.json`. The decision is documented in `docs/decisions.md` as ADR-005.
+
+**All acceptance criteria met:**
+- [x] `/server` directory with Express entry point and `package.json`
+- [x] `/client` directory with Vite + React + TypeScript and `package.json`
+- [x] Root `package.json` with `npm run dev`, `npm run server`, `npm run client`
+- [x] SQLite DB initialized at `server/data/kanban.db` on server startup
+- [x] All 5 tables created with correct schema
+- [x] `GET /api/health` returns `{ ok: true }`
+- [x] Vite dev proxy: `/api/*` → `http://localhost:3001`
+- [x] `client/src/App.tsx` renders "Board" and "Projects" placeholders
+- [x] `.gitignore` excludes `server/data/kanban.db` and `node_modules` in all three locations
+
 ## Demo Checkpoint
 No
 
