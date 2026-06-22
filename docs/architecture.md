@@ -1,64 +1,44 @@
-# Architecture — [Project Name]
-
-> This document is the source of truth for how the system is built. It is created during planning and maintained throughout execution. When code and this document diverge, update this document to match the code.
-
----
+# Architecture — Local Kanban Board
 
 ## System Overview
-[2–4 sentences describing what the system does and how its major pieces fit together. Suitable as an onboarding summary for a new developer.]
+Local single-user Kanban app. React + Vite SPA communicates with a local Express API. SQLite (better-sqlite3) stores all data as a local file. No auth, no external services, no cloud.
 
 ## Component Map
-[List or diagram of the major components. Include which layer each lives in (frontend, API, background jobs, database, external integrations).]
 
 ```
-[e.g.
-  Browser (Angular/Next.js)
-    └── GraphQL API (ASP.NET Core / Hot Chocolate)
-         ├── Domain logic (CQRS handlers, validators)
-         ├── PostgreSQL (EF Core, multi-tenant via global query filters)
-         └── Keycloak (auth, multi-tenant SSO)
-]
+Browser (React + Vite, :5173)
+  └── Express API (Node.js, :3001)
+       └── SQLite (better-sqlite3, ./server/data/kanban.db)
 ```
 
 ## Data Model Summary
-[Key entities and their relationships. Not a full ERD — just enough to orient someone reading a task file.]
 
-| Entity | Table / Schema | Notes |
-|--------|---------------|-------|
-| [Entity name] | [schema.table] | [Key fields, relationships, soft-delete, tenant-scoped?] |
-| ... | | |
+| Entity | Table | Notes |
+|--------|-------|-------|
+| Project | projects | id, name, color, billable (bool), completed (bool), created_at |
+| Task | tasks | id, project_id FK, name, priority 1–4, notes, status, done_at, manual_adjustment_minutes, created_at, updated_at |
+| Subtask | subtasks | id, task_id FK, label, checked — informational only, no automation |
+| BlockedReason | blocked_reasons | id, task_id FK, reason, created_at — full history log, never overwritten |
+| TimeSession | time_sessions | id, task_id FK, started_at, ended_at, minutes — one row per In Progress period |
 
 ## External Integrations
-[Any third-party services, APIs, or systems this project depends on.]
-
-| Service | Purpose | Auth method | Notes |
-|---------|---------|-------------|-------|
-| [Service name] | [What it does] | [API key / OAuth / webhook] | [Rate limits, sandbox env?] |
-| ... | | | |
+None.
 
 ## Key Constraints
-[Decisions made early that shape everything downstream. Link to the relevant ADR for each.]
-
-- [e.g. Multi-tenant via shared schema — global EF query filters on `TenantId`. See ADR-001.]
-- [e.g. All timestamps stored in UTC; converted at presentation layer.]
-- [e.g. No classes ending in `Service` — strict SRP, domain-named classes.]
+- All timestamps stored as ISO 8601 UTC strings in SQLite
+- Done column shows only tasks with `done_at` within the last 72h; older done tasks visible on Project Detail only
+- Time sessions are auto-managed by the API on status transitions; `manual_adjustment_minutes` on the task is a separate ledger (never overwrites session time)
+- Deleting a project cascades to all child tasks, subtasks, blocked_reasons, time_sessions
+- Vite dev proxy forwards `/api/*` to `:3001` — no CORS config needed in dev
 
 ## Layer Responsibilities
 
 | Layer | What lives here | What does NOT live here |
 |-------|----------------|------------------------|
-| Frontend | UI state, form validation, display formatting | Business logic, auth decisions |
-| API (GraphQL) | Query/mutation resolvers, auth middleware | Heavy computation, direct DB writes outside EF |
-| Domain | CQRS handlers, FluentValidation, business rules | HTTP concerns, EF migrations |
-| Database | Schema, indexes, migrations | Business logic |
+| Frontend (React) | UI state, drag-and-drop, form validation, display formatting | Business logic, time session management |
+| API (Express) | CRUD, time session open/close on status change, cascade deletes | UI concerns |
+| Database (SQLite) | Schema, data, FK relationships | Business logic |
 
 ## Testing Strategy
-[Which layers have which kinds of tests, and any shared test infrastructure worth noting.]
-
-- Unit: [What's covered, which framework]
-- Integration: [DB-hit tests, test isolation approach]
-- E2E: [Playwright targets, scope]
-
----
-
-*Maintained by the PM agent during planning. Developer agent updates after each task that changes the architecture.*
+- Visual / E2E: Playwright — screenshots of Board and Projects pages; run via `npm run feedback` from repo root
+- Unit tests: not planned for v1 (single-user local tool)

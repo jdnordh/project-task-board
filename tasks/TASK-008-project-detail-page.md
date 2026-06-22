@@ -1,0 +1,47 @@
+# TASK-008 — Project Detail Sub-Page
+
+## Context
+TASK-003 (Projects page) is complete. Projects are listed and linked, but clicking a project currently 404s. This task builds the Project Detail sub-page that shows all tasks for a project — including done tasks older than 72 hours that have fallen off the Board.
+
+## Objective
+Navigating from the Projects page to a project opens the Project Detail sub-page showing project metadata, all its tasks (any status, any age), and the ability to open the Task Drawer on any task.
+
+## Acceptance Criteria
+- [ ] Route `/projects/:id` renders the Project Detail sub-page
+- [ ] `GET /api/projects/:id` — returns project metadata (name, color, billable, completed, created_at)
+- [ ] `GET /api/tasks?projectId=:id` — returns ALL tasks for a project (all statuses, no 72h filter)
+- [ ] Project Detail page shows: project name, color dot/badge, billable indicator, and complete status
+- [ ] Task list shows all tasks for the project grouped or sorted by status (or chronologically — match prototype if it shows this page)
+- [ ] Each task row/card is clickable — opens the Task Drawer (from TASK-005) in edit mode
+- [ ] "Back to Projects" navigation link
+- [ ] Done tasks older than 72h appear here (they are absent from the Board but present here)
+- [ ] Projects page: project name/card is now a working link to `/projects/:id`
+
+## Implementation Notes
+
+### Route
+Add to React Router: `<Route path="/projects/:id" element={<ProjectDetail />} />`
+
+### API
+`GET /api/tasks?projectId=:id` — add `projectId` filter to the existing tasks route (alongside existing `projectIds` filter for the board). No 72h filter applied here.
+
+### Prototype reference
+Check `prototypes/` for the Project Detail page design. If the prototype does not include this page, use the Projects page card style as a reference and keep the layout simple: header with project info, task list below.
+
+See `docs/architecture.md`, `docs/decisions.md`.
+
+After completing, capture screenshot of: Project Detail page with tasks including a done task that has fallen off the board.
+
+## Out of Scope for This Task
+- Editing project metadata inline on this page (editing is via Projects page — TASK-003)
+- Creating new tasks from this page (use the top-bar "+ New Task" button from TASK-005)
+
+## Demo Checkpoint
+Yes — navigate from Projects page to a project; see all tasks including done tasks >72h old; open task drawer from a task.
+
+## Dependencies
+- Requires: TASK-003
+- Blocks: none
+
+## Priority
+medium

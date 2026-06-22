@@ -1,95 +1,66 @@
-# Build Prompt: Local Kanban Board App
+# Project Plan — Local Kanban Board
 
-## Stack
-- Backend: Node.js + Express + `better-sqlite3` (local SQLite file, single-user, no auth)
-- Frontend: React (Vite), single-page app, talks to local Express API
-- No external services — everything runs locally
+## Overview
+Single-user local task management app with a Kanban board UI. Node.js + Express + SQLite backend, React + Vite frontend. No auth, no external services — everything runs locally.
 
----
+## User Workflow
 
-## Data Model
+**Happy path (Board):**
+1. User opens app to Board page — active tasks spread across 5 columns
+2. User drags task from Backlog → Ready when actionable
+3. User drags task to In Progress — time session auto-starts if project is billable
+4. User drags task to Blocked — required reason modal appears; reason saved to history
+5. User drags task to Done — `done_at` set; task visible in Done column for 72h, then falls off board (still on Project Detail)
 
-**projects**
-- id, name, color (one of 12 preset theme-friendly, distinguishable colors), billable (bool), completed (bool), created_at
+**Happy path (Projects):**
+1. User creates project (name, color, billable toggle)
+2. User views all tasks for project on Project Detail sub-page, including done tasks older than 72h
+3. User marks project Completed or deletes it (cascade confirmation shows task count)
 
-**tasks**
-- id, project_id (FK), name, priority (1–4, default 2), notes, status (backlog | ready | in_progress | blocked | done), done_at (timestamp, set when moved to done), created_at, updated_at
+**Edge cases / failure paths:**
+- Tab/app closed mid-session: server closes active time session via beforeunload or heartbeat
+- Dragging to Blocked without reason: confirm button disabled until reason entered
+- Clicking outside drawer with unsaved changes: confirm-discard modal required
+- Deleting project: modal explicitly states "This will also delete N tasks"
 
-**subtasks**
-- id, task_id (FK), label, checked (bool) — purely informational checklist, no automation when all are checked
+## Goals
+- Fast, frictionless local Kanban with no auth or cloud friction
+- Accurate billable time tracking across multiple In Progress sessions per task
+- Full blocked-reason history (never overwritten on repeat blocks)
 
-**blocked_reasons**
-- id, task_id (FK), reason, created_at — **full history log**, one row per time a task enters "blocked" (not overwritten)
+## Out of Scope (This Phase)
+- Multi-user, cloud sync, auth
+- Time report exports
+- Time UI on non-billable tasks (hidden)
+- Notifications or reminders
 
-**time_sessions**
-- id, task_id (FK), started_at, ended_at, minutes (derived or stored)
-- One row per "in progress" session. If the tab/app is closed mid-session, count time up to that close (use `beforeunload`/heartbeat or last-active timestamp to close out the session server-side).
-- Manual adjustments are stored as a `manual_adjustment_minutes` total on the task (separate ledger from session time), so auto-tracked time is never overwritten — only adjusted on top of.
+## Tech Stack
+| Layer | Choice | Rationale |
+|---|---|---|
+| Backend | Node.js + Express | Lightweight, local-only, no cloud infra needed |
+| Database | better-sqlite3 (SQLite) | Single-user, local file, zero infra |
+| Frontend | React + Vite | Fast dev cycle; Jordan's frontend preference |
+| Drag-and-drop | dnd-kit | Modern, accessible, actively maintained |
+| E2E / Visual | Playwright | Jordan's testing standard; visual regression via screenshots |
 
----
+## Architecture Summary
+React SPA talks to local Express API via Vite dev proxy. SQLite file initialized on server startup. Time sessions opened/closed by API on status transitions; tab-close handled via beforeunload signal or heartbeat.
 
-## Pages & Layout
+## Milestones
+| # | Milestone | Demo? | Est. Effort |
+|---|-----------|-------|-------------|
+| 1 | Playwright feedback loop + project scaffold | No | S |
+| 2 | Projects page + Board page wired to real data | Yes | M |
+| 3 | Task Drawer + Blocked modal | Yes | M |
+| 4 | Time tracking + Project Detail sub-page | Yes | M |
 
-### Global
-- Left vertical nav bar (icon + label): **Board**, **Projects**
-- Thin top bar with **"+ New Task"** button, right-aligned
+## Open Questions
+- Project color + billable flag: editable after creation? (Current assumption: yes — flag if billable lock preferred to protect time history)
+- Task deletion in drawer: current assumption is yes, with confirmation modal
 
-### Board Page
-Columns, always visible (horizontal scroll on narrow viewports rather than collapsing/hiding any column), in this fixed order:
-1. **Backlog** — collapsible. Expanded by default on first load; after that, remember the user's last collapsed/expanded state via a cookie.
-2. **Ready**
-3. **In Progress** — entering this status starts a time_session for billable tasks; leaving it (to any other status) closes out the session.
-4. **Blocked** — moving a task into this column opens a modal prompting for a reason. Reason is required to confirm the move; saved to `blocked_reasons` history (not overwritten on repeat blocks).
-5. **Done** — only shows tasks with `done_at` within the last 72 hours. After 72 hours, tasks disappear from this column but remain visible on their Project's sub-page (not deleted).
-
-Behavior:
-- Drag-and-drop between any two columns, in any direction.
-- Within a column, tasks auto-sort by priority (1 = highest, shown first).
-- Filter pills above the board: one per non-completed project, multi-select, **OR logic** (a task shows if it matches any selected project). No selection = show all.
-- Responsive: columns keep a sensible min-width and the board scrolls horizontally on small/half screens rather than squishing columns unreadably.
-
-### Projects Page
-- List/grid of projects. Completed projects appear in a separate **"Completed"** section below active ones (not hidden).
-- Create project: name, color (pick from 12 preset theme-friendly, visually distinguishable colors — e.g., a balanced palette covering blue/teal/green/yellow/orange/red/pink/purple/etc. at consistent saturation/lightness for theme consistency), billable toggle.
-- Each project: mark as **Completed** (toggle) or **Delete** (confirmation modal required). Deleting a project **cascades**: all child tasks (and their subtasks, blocked history, time sessions) are deleted too — make the confirmation modal explicit about this ("This will also delete N tasks").
-- Clicking a project navigates to its **Project Detail sub-page**.
-
-### Project Detail Sub-Page
-- Shows project info (name, color, billable flag) and all its child tasks (including tasks completed >72h ago, which no longer show on the Board).
-- Accessible only via navigating from the Projects page (not in the left nav directly).
-
-### Task Drawer (Create/Edit)
-- Slides in from the right.
-- Dismiss by clicking outside the drawer — **but** if there are unsaved changes, show a confirm-discard modal first.
-- Fields:
-  - Name
-  - Parent project: pill-button picker, showing all **non-completed** projects only
-  - Priority: 1/2/3/4 pill or dropdown, default 2
-  - Notes (free text)
-  - Subtasks: checklist (add/remove/check items)
-  - **Time spent** (only shown if parent project is billable):
-    - Auto-tracked total from `time_sessions` displayed as the primary value (e.g., "2h 14m" — accumulated automatically while the task sits in "In Progress," across multiple sessions)
-    - Manual adjustment controls alongside it: quick chips (+5 / +15 / +30 / −5 min) plus a tap-to-edit exact-minutes field, for correcting the auto-tracked total
-    - Auto-tracking and manual adjustments are both visible/auditable, not silently merged
-
-### Blocked Modal
-- Triggered on drag/drop or status-change into "Blocked"
-- Single required text field: reason
-- On save: appends to that task's `blocked_reasons` history and moves the task to Blocked
-
-### Delete Confirmation Modals
-- Used for: deleting a project (cascade warning, see above), deleting a task (if task deletion is exposed in the drawer — recommend adding a delete option there too, with confirmation)
-
----
-
-## Visual Notes
-- Priority can use a simple color-coded badge or dot (e.g., 1 = red/urgent → 4 = grey/low) rather than just a bare number, for at-a-glance scanning
-- 12 project colors should be a single consistent palette (similar saturation/lightness) so any color reads as "themed" and none clashes or dominates
-
----
-
-## Open Assumptions (flag if you want these changed)
+## Assumptions Made
 - Filter pills use OR logic across selected projects
-- Project color and billable flag are editable after creation (not locked at creation) — confirm if you'd rather lock billable status to avoid messing with historical time data
-- No task-level delete was explicitly specified but is recommended in the drawer with confirmation, mirroring the project delete pattern
-- Subtask checklist is purely informational — no automation when all items are checked
+- Color and billable flag are editable post-creation
+- Task delete exposed in drawer with confirmation modal
+- Subtask checklist is purely informational (no automation on all-checked)
+- dnd-kit chosen for drag-and-drop

@@ -8,3 +8,11 @@ Last updated: 2026-06-22
 <!-- Format: TASK-NNN Short Name — [P1] — <status> — depends: TASK-MMM, TASK-KKK -->
 <!-- Priority: P1=high, P2=medium, P3=low. Status: planning | ready | in-progress | qa | qa-fail | complete. -->
 <!-- depends: comma-separated task IDs this task waits on, or "none". A task becomes `ready` when all its depends are `complete`. -->
+TASK-001 Playwright Visual Feedback Loop — [P1] — ready — depends: none
+TASK-002 Project Scaffold + DB Schema — [P1] — ready — depends: none
+TASK-003 Projects API + Projects Page — [P1] — planning — depends: TASK-002
+TASK-004 Board Page + Tasks API — [P1] — planning — depends: TASK-002
+TASK-005 Task Drawer — [P2] — planning — depends: TASK-003, TASK-004
+TASK-006 Blocked Reason Modal — [P2] — planning — depends: TASK-004
+TASK-007 Time Tracking — [P2] — planning — depends: TASK-004, TASK-005
+TASK-008 Project Detail Sub-Page — [P2] — planning — depends: TASK-003
