@@ -410,24 +410,17 @@ router.get('/:id/blocked-reasons', (req, res) => {
 /**
  * POST /api/tasks/:id/sessions/start
  * Opens a new time session for the given task.
- * Validates: task exists (404); project is billable (400); no open session already (400).
+ * Validates: task exists (404); no open session already (400).
  * Returns 201 with the new time_sessions row.
  */
 router.post('/:id/sessions/start', (req, res) => {
   try {
     const id = Number(req.params.id);
 
-    // Verify task + project exist and project is billable
-    const task = db.prepare(`
-      SELECT t.id, p.billable AS project_billable
-      FROM tasks t JOIN projects p ON p.id = t.project_id
-      WHERE t.id = ?
-    `).get(id);
+    // Verify task exists
+    const task = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
     if (!task) {
       return res.status(404).json({ error: 'Task not found' });
-    }
-    if (!task.project_billable) {
-      return res.status(400).json({ error: 'Project is not billable; time tracking is disabled' });
     }
 
     // Idempotency guard: reject if an open session already exists

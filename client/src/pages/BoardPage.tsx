@@ -823,12 +823,12 @@ export function BoardPage({ refreshKey, onTaskClick }: BoardPageProps) {
 
   // ---- Heartbeat + beforeunload -------------------------------------------
 
-  // Send heartbeats for all in-progress billable tasks every 30 seconds.
+  // Send heartbeats for all in-progress tasks every 30 seconds.
   // On tab/window close, send a beacon to close-stale as a best-effort backup.
   useEffect(() => {
     const getActiveTaskIds = (): number[] =>
       tasks
-        .filter((t) => t.status === 'in_progress' && Boolean(t.project_billable))
+        .filter((t) => t.status === 'in_progress')
         .map((t) => t.id)
 
     const intervalId = setInterval(() => {
@@ -925,13 +925,11 @@ export function BoardPage({ refreshKey, onTaskClick }: BoardPageProps) {
       return
     }
 
-    // Fire-and-forget session management for billable tasks
-    if (task.project_billable) {
-      if (newStatus === 'in_progress') {
-        fetch(`/api/tasks/${task.id}/sessions/start`, { method: 'POST' }).catch(() => {})
-      } else if (task.status === 'in_progress') {
-        fetch(`/api/tasks/${task.id}/sessions/end`, { method: 'POST' }).catch(() => {})
-      }
+    // Fire-and-forget session management for all tasks
+    if (newStatus === 'in_progress') {
+      fetch(`/api/tasks/${task.id}/sessions/start`, { method: 'POST' }).catch(() => {})
+    } else if (task.status === 'in_progress') {
+      fetch(`/api/tasks/${task.id}/sessions/end`, { method: 'POST' }).catch(() => {})
     }
 
     // Optimistic update
@@ -963,8 +961,8 @@ export function BoardPage({ refreshKey, onTaskClick }: BoardPageProps) {
     setBlockedModalOpen(false)
     setPendingBlockedTask(null)
 
-    // End session if the task was in_progress and project is billable
-    if (task.project_billable && task.status === 'in_progress') {
+    // End session if the task was in_progress
+    if (task.status === 'in_progress') {
       fetch(`/api/tasks/${task.id}/sessions/end`, { method: 'POST' }).catch(() => {})
     }
 

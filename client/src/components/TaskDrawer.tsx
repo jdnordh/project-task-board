@@ -312,9 +312,6 @@ export function TaskDrawer({ taskId, projects, defaultStatus = 'ready', onSaved,
 
   const isDirty = JSON.stringify(draft) !== baseline
 
-  const selectedProject = projects.find((p) => p.id === draft.project_id)
-  const isBillable = selectedProject?.billable ?? false
-
   const totalMinutes = sessionMinutes + draft.manual_adjustment_minutes
 
   // ---- Backdrop click (with dirty check) -----------------------------------
@@ -816,9 +813,8 @@ export function TaskDrawer({ taskId, projects, defaultStatus = 'ready', onSaved,
                 </div>
               </div>
 
-              {/* Time spent — only for billable projects */}
-              {isBillable && (
-                <div style={{
+              {/* Time spent */}
+              <div style={{
                   display: 'flex', flexDirection: 'column', gap: 11,
                   padding: 16, borderRadius: 14,
                   background: 'var(--surface-card)',
@@ -915,7 +911,7 @@ export function TaskDrawer({ taskId, projects, defaultStatus = 'ready', onSaved,
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           )}
 
