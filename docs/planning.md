@@ -2,7 +2,7 @@
 
 Version: 4
 Setup: complete
-Last updated: 2026-06-23 (TASK-013 created)
+Last updated: 2026-06-23 (TASK-016, TASK-017 created)
 
 ## Tasks
 <!-- Format: TASK-NNN Short Name — [P1] — <status> — depends: TASK-MMM, TASK-KKK -->
@@ -21,3 +21,7 @@ TASK-010 Project Edit Drawer + Background Fix — [P2] — complete — depends:
 TASK-011 Task Creation Status Picker — [P2] — complete — depends: TASK-005
 TASK-012 Favicon — [P3] — in-progress — depends: none
 TASK-013 Board Responsive Layout (Half-Monitor) — [P2] — complete — depends: none
+TASK-014 Universal Time Tracking (All Tasks) — [P2] — in-progress — depends: none
+TASK-015 Project Billable Toggle in Edit Drawer — [P2] — in-progress — depends: none
+TASK-016 Is Paid Field on Billable Tasks — [P2] — in-progress — depends: none
+TASK-017 Board Column Dot Color Adjustments — [P3] — complete — depends: none
