@@ -975,7 +975,6 @@ export function TaskDrawer({ taskId, projects, defaultStatus = 'ready', onSaved,
                   </div>
                 </div>
               </div>
-            </div>
           )}
 
           {/* Footer */}
