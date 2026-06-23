@@ -13,6 +13,7 @@ require('./db');
 const { router: projectsRouter } = require('./routes/projects');
 const tasksRouter = require('./routes/tasks');
 const subtasksRouter = require('./routes/subtasks');
+const sessionsRouter = require('./routes/sessions');
 
 const app = express();
 const PORT = 3001;
@@ -30,6 +31,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/projects', projectsRouter);
 app.use('/api/tasks', tasksRouter);
 app.use('/api/subtasks', subtasksRouter);
+app.use('/api/sessions', sessionsRouter);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

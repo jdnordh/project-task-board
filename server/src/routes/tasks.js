@@ -45,8 +45,9 @@ router.get('/', (req, res) => {
         t.manual_adjustment_minutes,
         t.created_at,
         t.updated_at,
-        p.name  AS project_name,
-        p.color AS project_color,
+        p.name    AS project_name,
+        p.color   AS project_color,
+        p.billable AS project_billable,
         br.reason AS latest_blocked_reason
       FROM tasks t
       JOIN projects p ON p.id = t.project_id
@@ -402,6 +403,87 @@ router.get('/:id/blocked-reasons', (req, res) => {
     res.json(rows);
   } catch (err) {
     console.error('GET /api/tasks/:id/blocked-reasons error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/tasks/:id/sessions/start
+ * Opens a new time session for the given task.
+ * Validates: task exists (404); project is billable (400); no open session already (400).
+ * Returns 201 with the new time_sessions row.
+ */
+router.post('/:id/sessions/start', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    // Verify task + project exist and project is billable
+    const task = db.prepare(`
+      SELECT t.id, p.billable AS project_billable
+      FROM tasks t JOIN projects p ON p.id = t.project_id
+      WHERE t.id = ?
+    `).get(id);
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    if (!task.project_billable) {
+      return res.status(400).json({ error: 'Project is not billable; time tracking is disabled' });
+    }
+
+    // Idempotency guard: reject if an open session already exists
+    const open = db.prepare(
+      'SELECT id FROM time_sessions WHERE task_id = ? AND ended_at IS NULL'
+    ).get(id);
+    if (open) {
+      return res.status(400).json({ error: 'An open session already exists for this task' });
+    }
+
+    const now = new Date().toISOString();
+    const result = db.prepare(
+      'INSERT INTO time_sessions (task_id, started_at, ended_at, minutes) VALUES (?, ?, NULL, NULL)'
+    ).run(id, now);
+
+    const session = db.prepare('SELECT * FROM time_sessions WHERE id = ?').get(result.lastInsertRowid);
+    res.status(201).json(session);
+  } catch (err) {
+    console.error('POST /api/tasks/:id/sessions/start error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/tasks/:id/sessions/end
+ * Closes the open time session for the given task.
+ * If no open session exists, returns 200 { closed: false } (no-op).
+ * Otherwise closes it and returns 200 { closed: true, session }.
+ */
+router.post('/:id/sessions/end', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    const task = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const open = db.prepare(
+      'SELECT * FROM time_sessions WHERE task_id = ? AND ended_at IS NULL'
+    ).get(id);
+    if (!open) {
+      return res.json({ closed: false });
+    }
+
+    db.prepare(`
+      UPDATE time_sessions
+      SET ended_at = datetime('now'),
+          minutes = MAX(1, CAST((julianday('now') - julianday(started_at)) * 1440 AS INTEGER))
+      WHERE id = ?
+    `).run(open.id);
+
+    const session = db.prepare('SELECT * FROM time_sessions WHERE id = ?').get(open.id);
+    res.json({ closed: true, session });
+  } catch (err) {
+    console.error('POST /api/tasks/:id/sessions/end error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

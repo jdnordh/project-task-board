@@ -35,6 +35,8 @@ export interface Task {
   updated_at: string
   project_name: string
   project_color: string
+  /** 1 if the project is billable, 0 if not (node:sqlite returns integer, not boolean). */
+  project_billable: number
   /** Most recent blocked_reasons.reason for this task; null if none. */
   latest_blocked_reason: string | null
 }
@@ -805,6 +807,38 @@ export function BoardPage() {
     loadTasks(selectedProjectIds)
   }, [selectedProjectIds, loadTasks])
 
+  // ---- Heartbeat + beforeunload -------------------------------------------
+
+  // Send heartbeats for all in-progress billable tasks every 30 seconds.
+  // On tab/window close, send a beacon to close-stale as a best-effort backup.
+  useEffect(() => {
+    const getActiveTaskIds = (): number[] =>
+      tasks
+        .filter((t) => t.status === 'in_progress' && Boolean(t.project_billable))
+        .map((t) => t.id)
+
+    const intervalId = setInterval(() => {
+      const ids = getActiveTaskIds()
+      for (const taskId of ids) {
+        fetch('/api/sessions/heartbeat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskId }),
+        }).catch(() => {})
+      }
+    }, 30_000)
+
+    function handleBeforeUnload() {
+      navigator.sendBeacon('/api/sessions/close-stale')
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      clearInterval(intervalId)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [tasks])
+
   // ---- Filter pill handlers -----------------------------------------------
 
   function handleToggleFilter(id: number) {
@@ -877,6 +911,15 @@ export function BoardPage() {
       return
     }
 
+    // Fire-and-forget session management for billable tasks
+    if (task.project_billable) {
+      if (newStatus === 'in_progress') {
+        fetch(`/api/tasks/${task.id}/sessions/start`, { method: 'POST' }).catch(() => {})
+      } else if (task.status === 'in_progress') {
+        fetch(`/api/tasks/${task.id}/sessions/end`, { method: 'POST' }).catch(() => {})
+      }
+    }
+
     // Optimistic update
     setTasks((prev) =>
       prev.map((t) =>
@@ -905,6 +948,11 @@ export function BoardPage() {
 
     setBlockedModalOpen(false)
     setPendingBlockedTask(null)
+
+    // End session if the task was in_progress and project is billable
+    if (task.project_billable && task.status === 'in_progress') {
+      fetch(`/api/tasks/${task.id}/sessions/end`, { method: 'POST' }).catch(() => {})
+    }
 
     try {
       await postBlockedReason(task.id, reason)
