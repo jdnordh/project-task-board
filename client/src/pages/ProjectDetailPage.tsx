@@ -34,6 +34,7 @@ interface Task {
   status: string
   done_at: string | null
   manual_adjustment_minutes: number
+  is_paid: number | boolean
   created_at: string
   updated_at: string
   project_name: string
@@ -89,16 +90,22 @@ interface TaskRowProps {
   task: Task
   /** Called when the row is clicked. Wire to TaskDrawer in TASK-005. */
   onTaskClick?: (task: Task) => void
+  /** Whether the project is billable — shows paid toggle when true. */
+  billable?: boolean
+  /** Called when the paid toggle is clicked. */
+  onTogglePaid?: (task: Task, paid: boolean) => void
 }
 
 /**
  * TaskRow — a single task row in the project detail list.
  * Matches the visual language of the Board's TaskCard: color left-border,
  * project color dot, priority badge, status pill.
+ * When the project is billable, shows a paid toggle on the right.
  */
-function TaskRow({ task, onTaskClick }: TaskRowProps) {
+function TaskRow({ task, onTaskClick, billable, onTogglePaid }: TaskRowProps) {
   const pri = PRIORITY_MAP[task.priority] ?? PRIORITY_MAP[2]
   const st = STATUS_MAP[task.status] ?? { label: task.status, color: '#74897b' }
+  const paid = Boolean(task.is_paid)
 
   return (
     <div
@@ -110,8 +117,8 @@ function TaskRow({ task, onTaskClick }: TaskRowProps) {
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '12px 16px',
         borderRadius: 14,
-        background: 'var(--surface-card)',
-        border: '1px solid var(--border-default)',
+        background: paid && billable ? 'rgba(69,211,187,0.06)' : 'var(--surface-card)',
+        border: `1px solid ${paid && billable ? 'rgba(69,211,187,0.25)' : 'var(--border-default)'}`,
         borderLeft: `3px solid ${task.project_color}`,
         boxShadow: 'var(--shadow-sm), var(--ring-inset)',
         cursor: onTaskClick ? 'pointer' : 'default',
@@ -122,14 +129,12 @@ function TaskRow({ task, onTaskClick }: TaskRowProps) {
         const el = e.currentTarget as HTMLElement
         el.style.transform = 'translateY(-2px)'
         el.style.boxShadow = 'var(--glow-accent), var(--ring-inset)'
-        el.style.borderColor = 'var(--border-strong)'
       }}
       onMouseLeave={(e) => {
         if (!onTaskClick) return
         const el = e.currentTarget as HTMLElement
         el.style.transform = ''
         el.style.boxShadow = 'var(--shadow-sm), var(--ring-inset)'
-        el.style.borderColor = 'var(--border-default)'
       }}
     >
       {/* Task name — flex grow */}
@@ -142,6 +147,22 @@ function TaskRow({ task, onTaskClick }: TaskRowProps) {
       }}>
         {task.name}
       </span>
+
+      {/* Paid badge — billable projects only */}
+      {billable && paid && (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          padding: '2px 8px', borderRadius: 'var(--radius-pill)',
+          background: 'rgba(69,211,187,0.15)',
+          fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.06em',
+          color: 'var(--canopy-300)', flexShrink: 0,
+        }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+          PAID
+        </span>
+      )}
 
       {/* Status pill */}
       <span style={{
@@ -177,6 +198,35 @@ function TaskRow({ task, onTaskClick }: TaskRowProps) {
         </span>
       </span>
 
+      {/* Paid checkbox — billable projects only; stops propagation to prevent task open */}
+      {billable && (
+        <button
+          role="checkbox"
+          aria-checked={paid}
+          aria-label={paid ? 'Mark as unpaid' : 'Mark as paid'}
+          onClick={(e) => {
+            e.stopPropagation()
+            onTogglePaid?.(task, !paid)
+          }}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 22, height: 22, borderRadius: 7, flexShrink: 0,
+            border: `1px solid ${paid ? 'var(--canopy-300)' : 'var(--border-strong)'}`,
+            background: paid ? 'rgba(69,211,187,0.2)' : 'transparent',
+            color: 'var(--canopy-300)',
+            cursor: 'pointer',
+            transition: 'all var(--dur-fast) var(--ease-grow)',
+          }}
+          title={paid ? 'Mark as unpaid' : 'Mark as paid'}
+        >
+          {paid && (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          )}
+        </button>
+      )}
+
       {/* Chevron hint — only rendered if clickable */}
       {onTaskClick && (
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -209,6 +259,7 @@ export function ProjectDetailPage({ onTaskClick }: ProjectDetailPageProps) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [paidBusy, setPaidBusy] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -228,6 +279,40 @@ export function ProjectDetailPage({ onTaskClick }: ProjectDetailPageProps) {
   }, [projectId])
 
   useEffect(() => { load() }, [load])
+
+  // ---- Paid actions (billable projects only) --------------------------------
+
+  async function handleTogglePaid(task: Task, paid: boolean) {
+    setPaidBusy(true)
+    try {
+      await fetch(`/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_paid: paid }),
+      })
+      // Optimistic update in local state
+      setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, is_paid: paid ? 1 : 0 } : t))
+    } finally {
+      setPaidBusy(false)
+    }
+  }
+
+  async function markAllPaid() {
+    if (!project?.billable) return
+    const unpaid = tasks.filter((t) => !t.is_paid)
+    if (unpaid.length === 0) return
+    setPaidBusy(true)
+    try {
+      await Promise.all(unpaid.map((t) => fetch(`/api/tasks/${t.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_paid: true }),
+      })))
+      await load()
+    } finally {
+      setPaidBusy(false)
+    }
+  }
 
   // Group tasks by status for display order
   const STATUS_ORDER = ['in_progress', 'blocked', 'ready', 'backlog', 'done']
@@ -372,6 +457,31 @@ export function ProjectDetailPage({ onTaskClick }: ProjectDetailPageProps) {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+              {/* Mark all as paid — billable projects with at least one unpaid task */}
+              {project.billable && tasks.some((t) => !t.is_paid) && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={markAllPaid}
+                    disabled={paidBusy}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 7,
+                      padding: '9px 16px', borderRadius: 11,
+                      border: '1px solid rgba(69,211,187,0.4)',
+                      background: 'rgba(69,211,187,0.1)',
+                      color: 'var(--canopy-300)',
+                      fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600,
+                      cursor: paidBusy ? 'not-allowed' : 'pointer',
+                      opacity: paidBusy ? 0.6 : 1,
+                      transition: 'all var(--dur-fast) var(--ease-grow)',
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                    Mark all as paid
+                  </button>
+                </div>
+              )}
               {STATUS_ORDER.map((statusKey) => {
                 const group = tasksByStatus[statusKey]
                 if (!group || group.length === 0) return null
@@ -409,6 +519,8 @@ export function ProjectDetailPage({ onTaskClick }: ProjectDetailPageProps) {
                           key={task.id}
                           task={task}
                           onTaskClick={onTaskClick}
+                          billable={project.billable}
+                          onTogglePaid={handleTogglePaid}
                         />
                       ))}
                     </div>

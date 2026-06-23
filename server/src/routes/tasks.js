@@ -43,6 +43,7 @@ router.get('/', (req, res) => {
         t.status,
         t.done_at,
         t.manual_adjustment_minutes,
+        t.is_paid,
         t.created_at,
         t.updated_at,
         p.name    AS project_name,
@@ -246,6 +247,11 @@ router.patch('/:id', (req, res) => {
     // manual_adjustment_minutes
     if (body.manual_adjustment_minutes !== undefined) {
       updates.manual_adjustment_minutes = Number(body.manual_adjustment_minutes) || 0;
+    }
+
+    // is_paid
+    if (body.is_paid !== undefined) {
+      updates.is_paid = body.is_paid ? 1 : 0;
     }
 
     // Always refresh updated_at

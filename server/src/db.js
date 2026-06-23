@@ -71,6 +71,13 @@ db.exec(`
   );
 `);
 
+// Runtime migration: add is_paid column if it doesn't exist (idempotent — caught and swallowed on re-run).
+try {
+  db.exec(`ALTER TABLE tasks ADD COLUMN is_paid INTEGER NOT NULL DEFAULT 0`);
+} catch {
+  // Column already exists — ignore.
+}
+
 // Close any time sessions left open from a previous run (tab/server crash recovery).
 db.exec(`
   UPDATE time_sessions

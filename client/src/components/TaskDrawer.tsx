@@ -244,6 +244,7 @@ export function TaskDrawer({ taskId, projects, defaultStatus = 'ready', onSaved,
   const [draft, setDraft] = useState<DrawerDraft>(blankDraft(projects[0]?.id ?? null, defaultStatus))
   const [baseline, setBaseline] = useState('')
   const [sessionMinutes, setSessionMinutes] = useState(0)
+  const [isPaid, setIsPaid] = useState(false)
   const [loading, setLoading] = useState(isEditMode)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -294,6 +295,7 @@ export function TaskDrawer({ taskId, projects, defaultStatus = 'ready', onSaved,
           setDraft(d)
           setBaseline(JSON.stringify(d))
           setSessionMinutes(data.session_minutes ?? 0)
+          setIsPaid(Boolean(data.is_paid))
           setLoading(false)
           setTimeout(() => nameInputRef.current?.focus(), 60)
         }
@@ -314,6 +316,9 @@ export function TaskDrawer({ taskId, projects, defaultStatus = 'ready', onSaved,
 
   const totalMinutes = sessionMinutes + draft.manual_adjustment_minutes
 
+  const selectedProject = projects.find((p) => p.id === draft.project_id)
+  const isBillable = selectedProject?.billable ?? false
+
   // ---- Backdrop click (with dirty check) -----------------------------------
 
   function handleBackdrop() {
@@ -327,6 +332,24 @@ export function TaskDrawer({ taskId, projects, defaultStatus = 'ready', onSaved,
   function handleDiscard() {
     setShowDiscardModal(false)
     onClose()
+  }
+
+  // ---- Is Paid toggle (instant, fire-and-forget) ----------------------------
+
+  async function handleTogglePaid() {
+    if (!isEditMode) return
+    const next = !isPaid
+    setIsPaid(next)
+    try {
+      await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_paid: next }),
+      })
+    } catch {
+      // Revert optimistic update on failure
+      setIsPaid(!next)
+    }
   }
 
   // ---- Draft updaters -------------------------------------------------------
@@ -812,6 +835,46 @@ export function TaskDrawer({ taskId, projects, defaultStatus = 'ready', onSaved,
                   </button>
                 </div>
               </div>
+
+              {/* Is Paid toggle — billable projects and edit mode only */}
+              {isBillable && isEditMode && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '14px 16px', borderRadius: 14,
+                  background: isPaid ? 'rgba(69,211,187,0.07)' : 'var(--surface-card)',
+                  border: `1px solid ${isPaid ? 'rgba(69,211,187,0.35)' : 'var(--border-default)'}`,
+                  transition: 'background var(--dur-fast) var(--ease-grow), border-color var(--dur-fast) var(--ease-grow)',
+                }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <span style={labelStyle}>Paid</span>
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 12.5, color: isPaid ? 'var(--canopy-300)' : 'var(--text-faint)' }}>
+                      {isPaid ? 'Time has been invoiced' : 'Not yet invoiced'}
+                    </span>
+                  </div>
+                  <button
+                    role="switch"
+                    aria-checked={isPaid}
+                    onClick={handleTogglePaid}
+                    style={{
+                      position: 'relative',
+                      width: 44, height: 24, borderRadius: 12, flexShrink: 0,
+                      border: `1px solid ${isPaid ? 'var(--canopy-300)' : 'var(--border-strong)'}`,
+                      background: isPaid ? 'var(--canopy-300)' : 'var(--surface-2)',
+                      cursor: 'pointer',
+                      transition: 'background var(--dur-fast) var(--ease-grow), border-color var(--dur-fast) var(--ease-grow)',
+                      padding: 0,
+                    }}
+                  >
+                    <span style={{
+                      position: 'absolute',
+                      top: 3, left: isPaid ? 22 : 3,
+                      width: 16, height: 16, borderRadius: '50%',
+                      background: isPaid ? 'var(--bg-sunken)' : 'var(--text-faint)',
+                      transition: 'left var(--dur-fast) var(--ease-grow)',
+                    }} />
+                  </button>
+                </div>
+              )}
 
               {/* Time spent */}
               <div style={{
