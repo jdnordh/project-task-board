@@ -1,5 +1,5 @@
 /**
- * ProjectDrawer — slide-in panel from the right for editing a project's name and color.
+ * ProjectDrawer — slide-in panel from the right for editing a project's name, color, and billable status.
  *
  * Always opens in edit mode (projectId required). Simpler than TaskDrawer:
  * no subtasks, no time tracking, no project picker.
@@ -7,7 +7,7 @@
  * Behaviours:
  * - Slides in from right via .grove-drawer CSS animation.
  * - Clicking the backdrop closes the drawer; if isDirty, shows confirm-discard modal.
- * - Saves via PATCH /api/projects/:id with { name, color }.
+ * - Saves via PATCH /api/projects/:id with { name, color, billable }.
  * - On success: calls onSaved() then onClose().
  */
 
@@ -28,6 +28,7 @@ export interface ProjectDrawerProps {
 interface DrawerDraft {
   name: string
   color: string
+  billable: boolean
 }
 
 // ---- Shared label style (same tokens as TaskDrawer) ------------------------
@@ -158,7 +159,7 @@ function ConfirmModal({ title, message, confirmLabel, danger = true, onConfirm, 
  * ProjectDrawer — slide-in panel for editing a project's name and color.
  */
 export function ProjectDrawer({ projectId, onSaved, onClose }: ProjectDrawerProps) {
-  const [draft, setDraft] = useState<DrawerDraft>({ name: '', color: PROJECT_COLORS[0] })
+  const [draft, setDraft] = useState<DrawerDraft>({ name: '', color: PROJECT_COLORS[0], billable: false })
   const [baseline, setBaseline] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -178,7 +179,7 @@ export function ProjectDrawer({ projectId, onSaved, onClose }: ProjectDrawerProp
         const res = await fetch(`/api/projects/${projectId}`)
         if (!res.ok) throw new Error('Failed to load project')
         const data = await res.json()
-        const d: DrawerDraft = { name: data.name, color: data.color }
+        const d: DrawerDraft = { name: data.name, color: data.color, billable: !!data.billable }
         if (!cancelled) {
           setDraft(d)
           setBaseline(JSON.stringify(d))
@@ -235,7 +236,7 @@ export function ProjectDrawer({ projectId, onSaved, onClose }: ProjectDrawerProp
       const res = await fetch(`/api/projects/${projectId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: draft.name.trim(), color: draft.color }),
+        body: JSON.stringify({ name: draft.name.trim(), color: draft.color, billable: draft.billable }),
       })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
@@ -378,6 +379,36 @@ export function ProjectDrawer({ projectId, onSaved, onClose }: ProjectDrawerProp
                     />
                   ))}
                 </div>
+              </div>
+
+              {/* Billable toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div>
+                  <div style={labelStyle}>Billable</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
+                    Track time on tasks in this project
+                  </div>
+                </div>
+                <button
+                  role="switch"
+                  aria-checked={draft.billable}
+                  onClick={() => setDraft(d => ({ ...d, billable: !d.billable }))}
+                  style={{
+                    width: 44, height: 24, borderRadius: 12, flexShrink: 0,
+                    border: 'none', cursor: 'pointer',
+                    background: draft.billable ? 'var(--canopy-400)' : 'var(--surface-3)',
+                    position: 'relative',
+                    transition: 'background var(--dur-fast) var(--ease-grow)',
+                  }}
+                  aria-label="Billable"
+                >
+                  <span style={{
+                    position: 'absolute', top: 3, borderRadius: '50%',
+                    width: 18, height: 18, background: 'var(--text-strong)',
+                    left: draft.billable ? 23 : 3,
+                    transition: 'left var(--dur-fast) var(--ease-grow)',
+                  }} />
+                </button>
               </div>
             </div>
           )}
