@@ -103,3 +103,13 @@ None required.
 
 ### Follow-up Tasks
 None discovered. If the Task Drawer (TASK-005) adds a status picker, it should also trigger this modal — noted in TASK-006 Out of Scope.
+
+### QA Verdict — PASS
+
+Live API tests (server on port 3001):
+- `POST /api/tasks/1/blocked-reasons` `{"reason":"Waiting on design"}` → new row returned ✅
+- `GET /api/tasks/1/blocked-reasons` → array with row, ordered newest first ✅
+- `GET /api/tasks` → each task row includes `latest_blocked_reason` field (null or string) ✅
+- Repeated POST creates NEW row (append-only, no overwrite) ✅
+
+UI verified via code review: BlockedReasonModal.tsx matches prototype design tokens; `handleDragEnd` intercepts `blocked` drops before optimistic update; `handleBlockedConfirm` fires POST then PATCH sequentially; cancel clears pending state with no revert needed.

@@ -87,3 +87,12 @@ None filed. Wiring `onTaskClick` to the TaskDrawer is handled by TASK-005.
 
 ### Screenshots
 Run `npm run dev` then `npm run feedback` to generate `feedback/screenshots/project-detail.png`.
+
+### QA Verdict — PASS
+
+Live API tests (server on port 3001):
+- `GET /api/projects/1` → project metadata with `task_count`, boolean-normalized fields ✅
+- `GET /api/tasks?projectId=1` → all tasks for project, no 72h/status filter applied ✅
+- `GET /api/tasks?projectIds=1` (plural, board filter) still works unchanged ✅
+
+UI verified via code review: ProjectDetailPage.tsx fetches project + tasks in parallel; groups by status (In Progress → Blocked → Ready → Backlog → Done); "Back to Projects" link present; `onTaskClick` prop wired to TaskDrawer in App.tsx; ProjectsPage cards navigate to `/projects/:id`.

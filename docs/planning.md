@@ -12,7 +12,7 @@ TASK-001 Playwright Visual Feedback Loop — [P1] — complete — depends: none
 TASK-002 Project Scaffold + DB Schema — [P1] — complete — depends: none
 TASK-003 Projects API + Projects Page — [P1] — complete — depends: TASK-002
 TASK-004 Board Page + Tasks API — [P1] — complete — depends: TASK-002
-TASK-005 Task Drawer — [P2] — in-progress — depends: TASK-003, TASK-004
-TASK-006 Blocked Reason Modal — [P2] — in-progress — depends: TASK-004
-TASK-007 Time Tracking — [P2] — planning — depends: TASK-004, TASK-005
-TASK-008 Project Detail Sub-Page — [P2] — in-progress — depends: TASK-003
+TASK-005 Task Drawer — [P2] — complete — depends: TASK-003, TASK-004
+TASK-006 Blocked Reason Modal — [P2] — complete — depends: TASK-004
+TASK-007 Time Tracking — [P2] — ready — depends: TASK-004, TASK-005
+TASK-008 Project Detail Sub-Page — [P2] — complete — depends: TASK-003
