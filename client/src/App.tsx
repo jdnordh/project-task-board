@@ -12,13 +12,13 @@
  * re-fetches via a refreshKey bump passed as a prop.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { BoardPage } from './pages/BoardPage'
 import { ProjectDetailPage } from './pages/ProjectDetailPage'
 import { TaskDrawer } from './components/TaskDrawer'
-import type { Project } from './components/TaskDrawer'
+import type { Project, TaskStatus } from './components/TaskDrawer'
 import './styles/design-system.css'
 
 /**
@@ -169,16 +169,24 @@ function TopBar({ onNewTask }: TopBarProps) {
 function AppShell() {
   /** null = drawer closed; undefined = create mode; number = edit mode task id */
   const [drawerTaskId, setDrawerTaskId] = useState<number | undefined | null>(null)
-  const [drawerProjects, setDrawerProjects] = useState<Project[]>([])
+  const [drawerDefaultStatus, setDrawerDefaultStatus] = useState<TaskStatus | undefined>(undefined)
   const [boardRefreshKey, setBoardRefreshKey] = useState(0)
+  /** Projects fetched once here so TopBar and drawer always have a fresh list. */
+  const [appProjects, setAppProjects] = useState<Project[]>([])
 
-  const openCreateDrawer = useCallback((projects: Project[]) => {
-    setDrawerProjects(projects)
+  useEffect(() => {
+    fetch('/api/projects')
+      .then((r) => r.json())
+      .then(setAppProjects)
+      .catch(() => {})
+  }, [boardRefreshKey])
+
+  const openCreateDrawer = useCallback((_projects?: Project[], defaultStatus?: TaskStatus) => {
+    setDrawerDefaultStatus(defaultStatus)
     setDrawerTaskId(undefined)
   }, [])
 
-  const openEditDrawer = useCallback((taskId: number, projects: Project[]) => {
-    setDrawerProjects(projects)
+  const openEditDrawer = useCallback((taskId: number) => {
     setDrawerTaskId(taskId)
   }, [])
 
@@ -197,13 +205,7 @@ function AppShell() {
       <NavRail />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <TopBar onNewTask={() => {
-          // Projects are loaded by BoardPage; for TopBar we pass empty and let
-          // the drawer's own project list fetch handle it.
-          // Actually we need to pass projects — BoardPage will pass them via callback.
-          // openCreateDrawer is called from BoardPage's onNewTask handler instead.
-          openCreateDrawer(drawerProjects)
-        }} />
+        <TopBar onNewTask={() => openCreateDrawer()} />
 
         <Routes>
           <Route
@@ -211,7 +213,7 @@ function AppShell() {
             element={
               <BoardPage
                 refreshKey={boardRefreshKey}
-                onNewTask={openCreateDrawer}
+                onNewTask={() => openCreateDrawer()}
                 onTaskClick={openEditDrawer}
               />
             }
@@ -225,7 +227,8 @@ function AppShell() {
       {drawerOpen && (
         <TaskDrawer
           taskId={drawerTaskId === undefined ? undefined : drawerTaskId}
-          projects={drawerProjects}
+          projects={appProjects}
+          defaultStatus={drawerDefaultStatus}
           onSaved={handleSaved}
           onClose={closeDrawer}
         />
@@ -235,12 +238,11 @@ function AppShell() {
 }
 
 /**
- * App — BrowserRouter wrapper + aurora background.
+ * App — BrowserRouter wrapper.
  */
 function App() {
   return (
     <BrowserRouter>
-      <div className="tf-aurora" />
       <AppShell />
     </BrowserRouter>
   )

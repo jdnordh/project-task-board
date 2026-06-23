@@ -206,7 +206,7 @@ body {
   line-height: var(--leading-body);
   font-weight: var(--weight-regular);
   color: var(--text-body);
-  background: var(--grad-forest) fixed;
+  background: var(--bg-base);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -235,63 +235,6 @@ a:hover { color: var(--canopy-300); }
   background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover { background: var(--ink-600); background-clip: content-box; }
-
-/* ---- Aurora background */
-.tf-aurora {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-  background: radial-gradient(ellipse 55% 48% at 55% 95%, rgba(21,128,61,0.28) 0%, transparent 65%);
-  animation: tf-aurora-b3 28s var(--ease-soft) infinite;
-}
-
-.tf-aurora::before {
-  content: '';
-  position: absolute;
-  width: 72%; height: 72%;
-  border-radius: 50%;
-  top: -25%; left: -15%;
-  background: rgba(74, 222, 128, 0.20);
-  filter: blur(72px);
-  animation: tf-aurora-b1 16s var(--ease-soft) infinite;
-}
-
-.tf-aurora::after {
-  content: '';
-  position: absolute;
-  width: 56%; height: 56%;
-  border-radius: 50%;
-  top: -18%; right: -14%;
-  background: rgba(69, 211, 187, 0.16);
-  filter: blur(64px);
-  animation: tf-aurora-b2 22s var(--ease-soft) infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tf-aurora,
-  .tf-aurora::before,
-  .tf-aurora::after { animation: none; }
-}
-
-/* ---- Keyframes */
-@keyframes tf-aurora-b1 {
-  0%,100% { transform: translate(0%, 0%); }
-  25%     { transform: translate(55%, 45%); }
-  50%     { transform: translate(78%, 82%); }
-  75%     { transform: translate(18%, 90%); }
-}
-@keyframes tf-aurora-b2 {
-  0%,100% { transform: translate(0%, 0%); }
-  33%     { transform: translate(-52%, 55%); }
-  66%     { transform: translate(-18%, 82%); }
-}
-@keyframes tf-aurora-b3 {
-  0%,100% { transform: translate(0%, 0%); }
-  30%     { transform: translate(-22%, -18%); }
-  60%     { transform: translate(20%, -12%); }
-}
 
 /* ---- Grove animations used in the app */
 .grove-card { animation: grove-rise var(--dur-base) var(--ease-grow) both; }

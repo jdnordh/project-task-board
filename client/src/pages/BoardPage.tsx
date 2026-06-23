@@ -416,12 +416,14 @@ interface BoardColumnProps {
   collapsed?: boolean
   overColumnKey: string | null
   onToggleCollapse?: () => void
+  /** Passed through to each DraggableTaskCard to open the edit drawer. */
+  onTaskClick?: (taskId: number) => void
 }
 
 /**
  * BoardColumn — full column including header and droppable card area.
  */
-function BoardColumn({ col, tasks, collapsed = false, overColumnKey, onToggleCollapse }: BoardColumnProps) {
+function BoardColumn({ col, tasks, collapsed = false, overColumnKey, onToggleCollapse, onTaskClick }: BoardColumnProps) {
   const isOver = overColumnKey === col.key
 
   if (collapsed) {
@@ -576,7 +578,7 @@ function BoardColumn({ col, tasks, collapsed = false, overColumnKey, onToggleCol
         {/* Droppable card area */}
         <DroppableColumn columnKey={col.key} tasks={tasks} isOver={isOver}>
           {tasks.map((task) => (
-            <DraggableTaskCard key={task.id} task={task} inBlockedColumn={col.key === 'blocked'} />
+            <DraggableTaskCard key={task.id} task={task} inBlockedColumn={col.key === 'blocked'} onTaskClick={onTaskClick} />
           ))}
 
           {tasks.length === 0 && (
@@ -730,6 +732,18 @@ function FilterPills({ projects, selected, onToggle, onClear }: FilterPillsProps
 
 // ---- BoardPage (main) -----------------------------------------------------
 
+interface BoardPageProps {
+  /**
+   * Incremented by AppShell after a drawer save/delete to trigger a board
+   * re-fetch. Each new value causes the useEffect to re-run.
+   */
+  refreshKey?: number
+  /** Called when the "+ New Task" button is clicked. */
+  onNewTask?: () => void
+  /** Called when a task card is clicked (not dragged). */
+  onTaskClick?: (taskId: number) => void
+}
+
 /**
  * BoardPage — root component for the `/` board route.
  *
@@ -739,7 +753,7 @@ function FilterPills({ projects, selected, onToggle, onClear }: FilterPillsProps
  * - Backlog collapsed/expanded state (cookie-persisted)
  * - dnd-kit drag-and-drop with optimistic task status updates
  */
-export function BoardPage() {
+export function BoardPage({ refreshKey, onTaskClick }: BoardPageProps) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
@@ -794,7 +808,7 @@ export function BoardPage() {
     }
     init()
     return () => { cancelled = true }
-  }, [])
+  }, [refreshKey]) // re-fetch whenever AppShell bumps refreshKey after a drawer save
 
   // Reload tasks whenever filter changes (after initial load)
   const isInitialMount = useRef(true)
@@ -1052,6 +1066,7 @@ export function BoardPage() {
               collapsed={col.isBacklog && !backlogExpanded}
               overColumnKey={overColumnKey}
               onToggleCollapse={col.isBacklog ? handleToggleBacklog : undefined}
+              onTaskClick={onTaskClick}
             />
           ))}
         </div>

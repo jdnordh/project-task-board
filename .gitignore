@@ -21,3 +21,4 @@ client/dist/
 
 # Playwright visual feedback screenshots (generated, not committed)
 feedback/screenshots/*.png
+/test-results

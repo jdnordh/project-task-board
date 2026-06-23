@@ -2,7 +2,7 @@
 
 Version: 4
 Setup: complete
-Last updated: 2026-06-22
+Last updated: 2026-06-22 (TASK-010 dispatched)
 
 ## Tasks
 <!-- Format: TASK-NNN Short Name — [P1] — <status> — depends: TASK-MMM, TASK-KKK -->
@@ -17,3 +17,5 @@ TASK-006 Blocked Reason Modal — [P2] — complete — depends: TASK-004
 TASK-007 Time Tracking — [P2] — complete — depends: TASK-004, TASK-005
 TASK-008 Project Detail Sub-Page — [P2] — complete — depends: TASK-003
 TASK-009 Fix design-system.css PostCSS parse error — [P1] — complete — depends: none
+TASK-010 Project Edit Drawer + Background Fix — [P2] — complete — depends: TASK-003
+TASK-011 Task Creation Status Picker — [P2] — in-progress — depends: TASK-005

@@ -26,6 +26,9 @@ export interface Project {
   completed: boolean
 }
 
+/** All valid task status values. */
+export type TaskStatus = 'backlog' | 'ready' | 'in_progress' | 'blocked' | 'done'
+
 interface SubtaskDraft {
   /** Temporary client-side key (not a real DB id until saved). */
   _key: string
@@ -37,6 +40,7 @@ interface DrawerDraft {
   name: string
   project_id: number | null
   priority: 1 | 2 | 3 | 4
+  status: TaskStatus
   notes: string
   subtasks: SubtaskDraft[]
   manual_adjustment_minutes: number
@@ -47,6 +51,11 @@ export interface TaskDrawerProps {
   taskId?: number
   /** Non-completed projects available for picking */
   projects: Project[]
+  /**
+   * Pre-selected status when opening in create mode.
+   * Defaults to 'ready'. Hidden in edit mode — status is changed via drag-and-drop.
+   */
+  defaultStatus?: TaskStatus
   /** Called after a successful save or delete so the board can refetch */
   onSaved: () => void
   /** Called to close the drawer (from cancel / after save / after delete) */
@@ -62,6 +71,18 @@ export const PRIORITY_MAP: Record<number, { label: string; color: string }> = {
   3: { label: 'Medium',   color: '#45d3bb' },
   4: { label: 'Low',      color: '#74897b' },
 }
+
+/** Status display config — label mapping for the status picker chips. */
+export const STATUS_MAP: Record<TaskStatus, { label: string }> = {
+  backlog:     { label: 'Backlog' },
+  ready:       { label: 'Ready' },
+  in_progress: { label: 'In Progress' },
+  blocked:     { label: 'Blocked' },
+  done:        { label: 'Done' },
+}
+
+/** Ordered list of statuses for rendering the picker. */
+const STATUS_OPTIONS: TaskStatus[] = ['backlog', 'ready', 'in_progress', 'blocked', 'done']
 
 /** Format minutes → "Xh Ym" or "Ym" */
 function fmtMinutes(total: number): string {
@@ -79,11 +100,12 @@ function nextKey(): string {
   return `sub_${Date.now()}_${++_keyCounter}`
 }
 
-function blankDraft(defaultProjectId: number | null = null): DrawerDraft {
+function blankDraft(defaultProjectId: number | null = null, defaultStatus: TaskStatus = 'ready'): DrawerDraft {
   return {
     name: '',
     project_id: defaultProjectId,
     priority: 2,
+    status: defaultStatus,
     notes: '',
     subtasks: [],
     manual_adjustment_minutes: 0,
@@ -216,10 +238,10 @@ function ConfirmModal({ title, message, confirmLabel, danger = true, onConfirm, 
 /**
  * TaskDrawer — slide-in panel for creating or editing a task.
  */
-export function TaskDrawer({ taskId, projects, onSaved, onClose }: TaskDrawerProps) {
+export function TaskDrawer({ taskId, projects, defaultStatus = 'ready', onSaved, onClose }: TaskDrawerProps) {
   const isEditMode = taskId !== undefined
 
-  const [draft, setDraft] = useState<DrawerDraft>(blankDraft(projects[0]?.id ?? null))
+  const [draft, setDraft] = useState<DrawerDraft>(blankDraft(projects[0]?.id ?? null, defaultStatus))
   const [baseline, setBaseline] = useState('')
   const [sessionMinutes, setSessionMinutes] = useState(0)
   const [loading, setLoading] = useState(isEditMode)
@@ -237,7 +259,7 @@ export function TaskDrawer({ taskId, projects, onSaved, onClose }: TaskDrawerPro
 
   useEffect(() => {
     if (!isEditMode) {
-      const d = blankDraft(projects.find((p) => !p.completed)?.id ?? null)
+      const d = blankDraft(projects.find((p) => !p.completed)?.id ?? null, defaultStatus)
       setDraft(d)
       setBaseline(JSON.stringify(d))
       setLoading(false)
@@ -258,6 +280,7 @@ export function TaskDrawer({ taskId, projects, onSaved, onClose }: TaskDrawerPro
           name: data.name,
           project_id: data.project_id,
           priority: data.priority as 1 | 2 | 3 | 4,
+          status: (data.status as TaskStatus) ?? 'ready',
           notes: data.notes ?? '',
           subtasks: (data.subtasks ?? []).map((s: { id: number; label: string; checked: number | boolean }) => ({
             _key: nextKey(),
@@ -283,7 +306,7 @@ export function TaskDrawer({ taskId, projects, onSaved, onClose }: TaskDrawerPro
     }
     load()
     return () => { cancelled = true }
-  }, [taskId, isEditMode]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [taskId, isEditMode, defaultStatus]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- Derived state -------------------------------------------------------
 
@@ -421,6 +444,7 @@ export function TaskDrawer({ taskId, projects, onSaved, onClose }: TaskDrawerPro
             name: draft.name.trim(),
             project_id: draft.project_id,
             priority: draft.priority,
+            status: draft.status,
             notes: draft.notes || null,
           }),
         })
@@ -640,6 +664,39 @@ export function TaskDrawer({ taskId, projects, onSaved, onClose }: TaskDrawerPro
                   })}
                 </div>
               </div>
+
+              {/* Status picker — create mode only; edit mode uses drag-and-drop */}
+              {!isEditMode && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label style={labelStyle}>Status</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                    {STATUS_OPTIONS.map((s) => {
+                      const isSelected = draft.status === s
+                      return (
+                        <button
+                          key={s}
+                          onClick={() => patchDraft({ status: s })}
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            padding: '9px 6px',
+                            borderRadius: 11,
+                            border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border-default)'}`,
+                            background: isSelected ? 'var(--accent-soft)' : 'transparent',
+                            color: isSelected ? 'var(--canopy-300)' : 'var(--text-muted)',
+                            fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 600,
+                            cursor: 'pointer',
+                            transition: 'all var(--dur-fast) var(--ease-grow)',
+                          }}
+                        >
+                          {STATUS_MAP[s].label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Notes */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

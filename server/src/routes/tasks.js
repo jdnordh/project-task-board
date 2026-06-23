@@ -103,7 +103,7 @@ router.get('/', (req, res) => {
  */
 router.post('/', (req, res) => {
   try {
-    const { name, project_id, priority = 2, status = 'backlog', notes } = req.body || {};
+    const { name, project_id, priority = 2, status = 'ready', notes } = req.body || {};
     const errors = [];
 
     if (!name || typeof name !== 'string' || !name.trim()) {
