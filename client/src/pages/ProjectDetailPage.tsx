@@ -53,9 +53,9 @@ const PRIORITY_MAP: Record<number, { label: string; color: string }> = {
 
 /** Status display labels and colors. */
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  backlog:     { label: 'Backlog',     color: '#74897b' },
-  ready:       { label: 'Ready',       color: '#45d3bb' },
-  in_progress: { label: 'In Progress', color: '#4ade80' },
+  backlog:     { label: 'Backlog',     color: '#9ca3af' },
+  ready:       { label: 'Ready',       color: '#60a5fa' },
+  in_progress: { label: 'In Progress', color: '#6ee7b7' },
   blocked:     { label: 'Blocked',     color: '#f0876a' },
   done:        { label: 'Done',        color: '#86efac' },
 }

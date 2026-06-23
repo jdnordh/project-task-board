@@ -56,7 +56,7 @@ const COLUMNS = [
   {
     key: 'backlog',
     label: 'Backlog',
-    accent: '#74897b',
+    accent: '#9ca3af',
     headBg: 'var(--surface-1)',
     emptyText: 'Nothing queued — add a task to get started.',
     isBacklog: true,
@@ -64,7 +64,7 @@ const COLUMNS = [
   {
     key: 'ready',
     label: 'Ready',
-    accent: '#45d3bb',
+    accent: '#60a5fa',
     headBg: 'var(--surface-1)',
     emptyText: 'No tasks are ready — move one from Backlog.',
     isBacklog: false,
@@ -72,8 +72,8 @@ const COLUMNS = [
   {
     key: 'in_progress',
     label: 'In Progress',
-    accent: '#4ade80',
-    headBg: 'rgba(74,222,128,0.04)',
+    accent: '#6ee7b7',
+    headBg: 'rgba(110,231,183,0.04)',
     emptyText: 'Nothing in flight right now.',
     isBacklog: false,
   },
@@ -488,7 +488,7 @@ function BoardColumn({ col, tasks, collapsed = false, overColumnKey, onToggleCol
   }
 
   return (
-    <div style={{ flexShrink: 0, width: 280, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+    <div style={{ flex: '1 1 180px', minWidth: 160, maxWidth: 340, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       <div
         style={{
           flex: 1,
@@ -639,7 +639,7 @@ function FilterPills({ projects, selected, onToggle, onClear }: FilterPillsProps
         display: 'flex',
         alignItems: 'center',
         gap: 9,
-        padding: '16px 28px 14px',
+        padding: '14px 12px 12px',
         flexWrap: 'wrap',
       }}
     >
@@ -1051,8 +1051,8 @@ export function BoardPage({ refreshKey, onTaskClick }: BoardPageProps) {
           style={{
             flex: 1,
             display: 'flex',
-            gap: 16,
-            padding: '4px 28px 26px',
+            gap: 10,
+            padding: '4px 12px 26px',
             overflowX: 'auto',
             overflowY: 'hidden',
             alignItems: 'stretch',
