@@ -16,3 +16,4 @@ TASK-005 Task Drawer — [P2] — complete — depends: TASK-003, TASK-004
 TASK-006 Blocked Reason Modal — [P2] — complete — depends: TASK-004
 TASK-007 Time Tracking — [P2] — complete — depends: TASK-004, TASK-005
 TASK-008 Project Detail Sub-Page — [P2] — complete — depends: TASK-003
+TASK-009 Fix design-system.css PostCSS parse error — [P1] — complete — depends: none
