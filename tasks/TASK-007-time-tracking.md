@@ -85,3 +85,47 @@ Yes — show: task dragged to In Progress starts session; dragged away closes se
 
 ## Priority
 medium
+
+---
+
+## Completion Summary
+
+**Implemented:** 2026-06-22
+
+### What was built
+
+**Server — `server/src/routes/tasks.js`**
+- Added `p.billable AS project_billable` to the `GET /api/tasks` list query so every task row now carries the project's billable flag
+- `POST /api/tasks/:id/sessions/start` — validates task exists (404), project is billable (400), no open session already (400 idempotency guard); inserts row with `started_at = now, ended_at = null, minutes = null`; returns 201 with new row
+- `POST /api/tasks/:id/sessions/end` — validates task exists (404); finds open session; if none returns `{ closed: false }` (no-op); otherwise closes with Julian-day minute calc (`MAX(1, CAST(... * 1440 AS INTEGER))`); returns `{ closed: true, session }`
+
+**Server — `server/src/routes/sessions.js`** (new file)
+- Module-level `heartbeatMap: Map<taskId, Date>` for in-memory heartbeat tracking (no schema change)
+- `POST /api/sessions/heartbeat` — stores `new Date()` for `taskId`; returns `{ ok: true }`
+- `POST /api/sessions/close-stale` — queries all open sessions, closes those with no heartbeat entry or heartbeat older than 60 seconds; returns `{ closed: N }`
+
+**Server — `server/src/index.js`**
+- Registered `sessionsRouter` at `/api/sessions`
+
+**Client — `client/src/pages/BoardPage.tsx`**
+- Added `project_billable: number` to `Task` interface (node:sqlite returns 0/1 integer)
+- In `handleDragEnd`: fire-and-forget `sessions/start` when moving TO in_progress, `sessions/end` when moving FROM in_progress (for billable tasks)
+- In `handleBlockedConfirm`: fire-and-forget `sessions/end` when task was in_progress and project is billable (blocked intercept bypasses the main drag path)
+- New `useEffect` (re-runs when `tasks` changes): 30-second `setInterval` sending heartbeat for all in-progress billable tasks; `beforeunload` listener calling `navigator.sendBeacon('/api/sessions/close-stale')`
+
+### Notes
+- Startup stale-session close was already present in `db.js` lines 74-80; not duplicated
+- Manual adjustment chips and `session_minutes` in `GET /api/tasks/:id` were already implemented by TASK-005; verified still working
+
+### QA Verdict: PASS
+
+All curl tests passed:
+- `POST /api/tasks/1/sessions/start` → 201 with session row (ended_at null)
+- Second start → 400 "already open" (idempotency)
+- `POST /api/tasks/1/sessions/end` → 200 `{ closed: true, session: { minutes: 1 } }`
+- Second end → 200 `{ closed: false }` (no-op)
+- `POST /api/sessions/heartbeat` with `{ taskId: 1 }` → `{ ok: true }`
+- `POST /api/sessions/close-stale` immediately after heartbeat → `{ closed: 0 }` (fresh heartbeat protected session)
+- `GET /api/tasks` → tasks include `project_billable` field
+- Start on non-billable project task → 400 "Project is not billable"
+- TypeScript check (`npx tsc --noEmit`) → no errors
