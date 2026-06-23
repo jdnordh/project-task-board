@@ -333,12 +333,15 @@ function TaskCard({ task, isDragging = false, inBlockedColumn = false }: TaskCar
 interface DraggableTaskCardProps {
   task: Task
   inBlockedColumn?: boolean
+  /** Called when the card is clicked (not dragged) — opens the edit drawer. */
+  onTaskClick?: (taskId: number) => void
 }
 
 /**
  * DraggableTaskCard — wraps TaskCard with dnd-kit's useDraggable hook.
+ * A stationary click (no drag movement) opens the task edit drawer via onTaskClick.
  */
-function DraggableTaskCard({ task, inBlockedColumn = false }: DraggableTaskCardProps) {
+function DraggableTaskCard({ task, inBlockedColumn = false, onTaskClick }: DraggableTaskCardProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `task-${task.id}`,
     data: { task },
@@ -351,6 +354,14 @@ function DraggableTaskCard({ task, inBlockedColumn = false }: DraggableTaskCardP
       {...attributes}
       style={{ touchAction: 'none' }}
       className="grove-card"
+      onClick={(e) => {
+        // Only fire click when the pointer didn't move (dnd-kit distance=6 ensures
+        // isDragging is false for stationary clicks).
+        if (!isDragging && onTaskClick) {
+          e.stopPropagation()
+          onTaskClick(task.id)
+        }
+      }}
     >
       <TaskCard task={task} isDragging={isDragging} inBlockedColumn={inBlockedColumn} />
     </div>

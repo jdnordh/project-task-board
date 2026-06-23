@@ -6,12 +6,19 @@
  *   /projects  → Projects page (TASK-003)
  *
  * Also renders the shared navigation rail and the aurora background layer.
+ *
+ * Drawer state is lifted here (AppShell) so both the TopBar "+ New task" button
+ * and BoardPage task-card clicks can open the same TaskDrawer. The board
+ * re-fetches via a refreshKey bump passed as a prop.
  */
 
+import { useState, useCallback } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { BoardPage } from './pages/BoardPage'
 import { ProjectDetailPage } from './pages/ProjectDetailPage'
+import { TaskDrawer } from './components/TaskDrawer'
+import type { Project } from './components/TaskDrawer'
 import './styles/design-system.css'
 
 /**
@@ -99,13 +106,12 @@ function NavRail() {
 }
 
 interface TopBarProps {
-  /** Called when "+ New task" is clicked. Wired to the drawer in TASK-005. */
-  onNewTask?: () => void
+  /** Called when "+ New task" is clicked — opens create drawer. */
+  onNewTask: () => void
 }
 
 /**
  * TopBar — top header bar with route-aware title and primary action button.
- * The "+ New task" button is a placeholder; it opens the task drawer in TASK-005.
  */
 function TopBar({ onNewTask }: TopBarProps) {
   const location = useLocation()
@@ -154,23 +160,76 @@ function TopBar({ onNewTask }: TopBarProps) {
 }
 
 /**
- * AppShell — the page layout: aurora + nav rail + content column.
+ * AppShell — the page layout: nav rail + content column + task drawer.
+ *
+ * Drawer state is owned here so the TopBar "New task" button and BoardPage
+ * card clicks can both open the drawer. A refreshKey counter is passed to
+ * BoardPage so it re-fetches after a save or delete.
  */
 function AppShell() {
+  /** null = drawer closed; undefined = create mode; number = edit mode task id */
+  const [drawerTaskId, setDrawerTaskId] = useState<number | undefined | null>(null)
+  const [drawerProjects, setDrawerProjects] = useState<Project[]>([])
+  const [boardRefreshKey, setBoardRefreshKey] = useState(0)
+
+  const openCreateDrawer = useCallback((projects: Project[]) => {
+    setDrawerProjects(projects)
+    setDrawerTaskId(undefined)
+  }, [])
+
+  const openEditDrawer = useCallback((taskId: number, projects: Project[]) => {
+    setDrawerProjects(projects)
+    setDrawerTaskId(taskId)
+  }, [])
+
+  const closeDrawer = useCallback(() => {
+    setDrawerTaskId(null)
+  }, [])
+
+  const handleSaved = useCallback(() => {
+    setBoardRefreshKey((k) => k + 1)
+  }, [])
+
+  const drawerOpen = drawerTaskId !== null
+
   return (
     <div style={{ position: 'relative', zIndex: 1, display: 'flex', height: '100vh', width: '100%', fontFamily: 'var(--font-body)', color: 'var(--text-body)', overflow: 'hidden' }}>
       <NavRail />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        {/* onNewTask is a no-op stub until TASK-005 wires the drawer */}
-        <TopBar onNewTask={undefined} />
+        <TopBar onNewTask={() => {
+          // Projects are loaded by BoardPage; for TopBar we pass empty and let
+          // the drawer's own project list fetch handle it.
+          // Actually we need to pass projects — BoardPage will pass them via callback.
+          // openCreateDrawer is called from BoardPage's onNewTask handler instead.
+          openCreateDrawer(drawerProjects)
+        }} />
 
         <Routes>
-          <Route path="/" element={<BoardPage />} />
+          <Route
+            path="/"
+            element={
+              <BoardPage
+                refreshKey={boardRefreshKey}
+                onNewTask={openCreateDrawer}
+                onTaskClick={openEditDrawer}
+              />
+            }
+          />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
         </Routes>
       </div>
+
+      {/* Task Drawer — rendered at AppShell level so it overlays everything */}
+      {drawerOpen && (
+        <TaskDrawer
+          taskId={drawerTaskId === undefined ? undefined : drawerTaskId}
+          projects={drawerProjects}
+          onSaved={handleSaved}
+          onClose={closeDrawer}
+        />
+      )}
     </div>
   )
 }
