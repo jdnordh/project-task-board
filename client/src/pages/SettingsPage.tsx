@@ -1,12 +1,14 @@
 /**
- * SettingsPage — profile name, board options, page visibility, Extras.
+ * SettingsPage — profile name, board options, repos base folder, page
+ * visibility, Extras.
  */
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Settings } from '../types'
 import { cleanDefaultEst, hideablePages, lockReason, parseHidden, turnOff, turnOn, isVisible, PAGES } from '../lib'
 import { Icon } from '../components/Icon'
-import { PageHeader, Stepper, Toggle } from '../components/ui'
+import { IconButton, PageHeader, Stepper, Toggle } from '../components/ui'
+import { loadRepos, type RepoList } from '../api'
 
 interface Props {
   settings: Settings
@@ -65,6 +67,29 @@ function NameInput({ value, onSave }: { value: string; onSave: (v: string) => vo
   )
 }
 
+/** Base folder for git repos: saved on blur, then rescanned. */
+function ReposBase({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [v, setV] = useState(value)
+  const [list, setList] = useState<RepoList | null>(null)
+  const scan = useCallback(() => { loadRepos(true).then(setList).catch(() => setList(null)) }, [])
+  useEffect(() => { scan() }, [scan, value])
+  const found = list?.repos.length ?? 0
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'stretch', width: 340 }}>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input className="g-input" value={v} placeholder="C:\Users\you\source\repos" aria-label="Repos base folder"
+          onChange={(e) => setV(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+          onBlur={() => { const t = v.trim(); setV(t); if (t !== value) onSave(t) }} />
+        <IconButton icon="refresh-cw" label="Rescan" onClick={scan} />
+      </div>
+      <span style={{ fontSize: 12, color: list?.error && value ? 'var(--warning)' : 'var(--fg-3)' }}>
+        {!value ? 'Not set.' : list?.error ? list.error : `${found} git repo${found === 1 ? '' : 's'} found.`}
+      </span>
+    </div>
+  )
+}
+
 export function SettingsPage({ settings, onSave }: Props) {
   const extras = settings.extras === 'true'
   const hidden = parseHidden(settings.hidden_pages)
@@ -102,7 +127,13 @@ export function SettingsPage({ settings, onSave }: Props) {
             onChange={(v) => onSave({ default_est: String(v) })} />} />
       </Section>
 
-      <Section title="Pages" subtitle="Choose which pages show in the sidebar. Hidden pages keep all their data. Turn a page back on to see it again.">
+      <Section title="Repos" subtitle="Grove lists the git repos directly inside this folder, so features and tasks can say where Buddy's workers run.">
+        <Row icon="folder-git-2" label="Repos base folder"
+          sub="The folder that holds your repos. Only its direct subfolders are checked."
+          control={<ReposBase value={settings.repos_base ?? ''} onSave={(v) => onSave({ repos_base: v })} />} />
+      </Section>
+
+      <Section title="Pages"subtitle="Choose which pages show in the sidebar. Hidden pages keep all their data. Turn a page back on to see it again.">
         {hideablePages(extras).map((p) => {
           const on = isVisible(p.id, hidden, extras)
           const lock = lockReason(p.id, hidden, extras)

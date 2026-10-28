@@ -10,6 +10,7 @@ import { Icon } from '../components/Icon'
 import { Button, Field, IconButton, PageHeader, SectionLabel, type ConfirmSpec } from '../components/ui'
 import { FeatureDot, FeatureStripe } from '../components/skin'
 import { ColorPicker, type Pick } from '../components/ColorPicker'
+import { RepoPicker } from '../components/RepoPicker'
 import { SkinSections } from '../extras/SkinSections'
 import { playCompletion } from '../fx'
 
@@ -103,6 +104,11 @@ function FeatureRow({ feature, tasks, extras, onUpdate, onComplete, onDelete, co
                 <option value="">No effort set</option>
                 {CLAUDE_EFFORTS.map((x) => <option key={x} value={x}>{x}</option>)}
               </select>
+            </div>
+          </Field>
+          <Field label="Git repo" hint="Where Buddy's workers run for this feature's tasks. A task can change it.">
+            <div style={{ maxWidth: 420 }}>
+              <RepoPicker value={feature.repo_path} onChange={(repo_path) => onUpdate({ repo_path })} />
             </div>
           </Field>
         </div>

@@ -276,7 +276,7 @@ export default function App() {
   const openNew = useCallback((status: ColumnId) => {
     const draft: Draft = {
       _new: true, title: '', feature: defaultFeature(), priority: 2, est: cleanDefaultEst(settings.default_est),
-      due: null, status, desc: '', desc_html: '', subtasks: [], claude_model: null, claude_effort: null,
+      due: null, status, desc: '', desc_html: '', subtasks: [], claude_model: null, claude_effort: null, repo_path: null,
     }
     setDrawer({ key: Date.now(), task: draft })
   }, [defaultFeature, settings.default_est])
@@ -304,7 +304,7 @@ export default function App() {
     if (!draft.title.trim()) return
     const base = {
       title: draft.title.trim(), feature: draft.feature, priority: draft.priority, est: draft.est, due: draft.due,
-      status: draft.status, desc: draft.desc, desc_html: draft.desc_html, claude_model: draft.claude_model, claude_effort: draft.claude_effort,
+      status: draft.status, desc: draft.desc, desc_html: draft.desc_html, claude_model: draft.claude_model, claude_effort: draft.claude_effort, repo_path: draft.repo_path,
     }
     if (('_new' in original && original._new) || !original.id) {
       const body = { ...base, subtasks: draft.subtasks }

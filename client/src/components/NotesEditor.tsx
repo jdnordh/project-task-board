@@ -1,6 +1,9 @@
 /**
  * NotesEditor — TipTap rich text (StarterKit: headings, bold, italic, lists,
- * code, links). No checkbox task-list: subtasks are the checklist.
+ * code, links) plus pictures. Pasted or dropped images upload to
+ * /api/images and are stored as `<img src="/api/images/<id>">`.
+ * Checkbox action items only with `taskList` (meeting notes): on a task,
+ * subtasks are the checklist.
  * Ctrl/Cmd+K opens a link popover. Links are not inclusive, so text typed
  * right after a link does not join it.
  */
@@ -10,17 +13,42 @@ import { EditorContent, useEditor, type Editor } from '@tiptap/react'
 import { Extension } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
+import Image from '@tiptap/extension-image'
+import { TaskList, TaskItem } from '@tiptap/extension-list'
 import { Placeholder } from '@tiptap/extensions'
 import { Icon } from './Icon'
 import { Button, usePopover } from './ui'
+import { uploadImage } from '../api'
 
 const NonInclusiveLink = Link.extend({ inclusive: () => false })
+/** Only pictures Grove stores; anything else pasted in is dropped. */
+const GroveImage = Image.extend({
+  parseHTML: () => [{ tag: 'img[src^="/api/images/"]' }],
+})
 
 interface Props {
   initialHtml: string
   onChange: (html: string, text: string) => void
   placeholder?: string
   minHeight?: number
+  /** Checkbox action items (meeting notes). */
+  taskList?: boolean
+  onBlur?: () => void
+}
+
+const imageFiles = (list: FileList | null | undefined) => [...(list ?? [])].filter((f) => /^image\/(png|jpeg|gif|webp)$/.test(f.type))
+
+async function insertImages(editor: Editor, files: File[], pos?: number) {
+  for (const file of files) {
+    try {
+      const { url } = await uploadImage(file)
+      const chain = editor.chain().focus()
+      if (pos !== undefined) chain.insertContentAt(pos, { type: 'image', attrs: { src: url } }).run()
+      else chain.setImage({ src: url }).run()
+    } catch (err) {
+      window.alert(`Could not add the picture: ${(err as Error).message}`)
+    }
+  }
 }
 
 function ToolButton({ icon, label, active, onClick }: { icon: string; label: string; active?: boolean; onClick: () => void }) {
@@ -63,15 +91,18 @@ function LinkPopover({ editor, onClose }: { editor: Editor; onClose: () => void 
   )
 }
 
-export function NotesEditor({ initialHtml, onChange, placeholder = 'Add notes…', minHeight = 110 }: Props) {
+export function NotesEditor({ initialHtml, onChange, placeholder = 'Add notes…', minHeight = 110, taskList = false, onBlur }: Props) {
   const [linkOpen, setLinkOpen] = useState(false)
   const openLink = useRef(() => setLinkOpen(true))
+  const fileInput = useRef<HTMLInputElement>(null)
   const [, force] = useState(0)
 
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ link: false, heading: { levels: [1, 2, 3] } }),
       NonInclusiveLink.configure({ openOnClick: false, autolink: true, defaultProtocol: 'https' }),
+      GroveImage.configure({ allowBase64: false }),
+      ...(taskList ? [TaskList, TaskItem.configure({ nested: true })] : []),
       Placeholder.configure({ placeholder }),
       Extension.create({
         name: 'linkShortcut',
@@ -79,12 +110,30 @@ export function NotesEditor({ initialHtml, onChange, placeholder = 'Add notes…
       }),
     ],
     content: initialHtml || '',
+    editorProps: {
+      handlePaste: (_view, event) => {
+        const files = imageFiles(event.clipboardData?.files)
+        if (!files.length || !editorRef.current) return false
+        void insertImages(editorRef.current, files)
+        return true
+      },
+      handleDrop: (view, event) => {
+        const files = imageFiles((event as DragEvent).dataTransfer?.files)
+        if (!files.length || !editorRef.current) return false
+        const at = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos
+        void insertImages(editorRef.current, files, at)
+        return true
+      },
+    },
     onUpdate: ({ editor: ed }) => {
       if (ed.isEmpty) onChange('', '')
       else onChange(ed.getHTML(), ed.getText({ blockSeparator: '\n' }))
     },
+    onBlur: () => onBlur?.(),
     onSelectionUpdate: () => force((n) => n + 1),
   })
+  const editorRef = useRef<Editor | null>(null)
+  editorRef.current = editor
 
   if (!editor) return null
   const is = (name: string, attrs?: Record<string, unknown>) => editor.isActive(name, attrs)
@@ -99,6 +148,12 @@ export function NotesEditor({ initialHtml, onChange, placeholder = 'Add notes…
         <ToolButton icon="list-ordered" label="Numbered list" active={is('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()} />
         <ToolButton icon="code" label="Code" active={is('code')} onClick={() => editor.chain().focus().toggleCode().run()} />
         <ToolButton icon="link" label="Link (Ctrl+K)" active={is('link')} onClick={() => setLinkOpen(true)} />
+        {taskList && (
+          <ToolButton icon="list-todo" label="Action item" active={is('taskList')} onClick={() => editor.chain().focus().toggleTaskList().run()} />
+        )}
+        <ToolButton icon="image-plus" label="Picture (or paste one)" onClick={() => fileInput.current?.click()} />
+        <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden
+          onChange={(e) => { void insertImages(editor, imageFiles(e.target.files)); e.target.value = '' }} />
       </div>
       {linkOpen && <LinkPopover editor={editor} onClose={() => setLinkOpen(false)} />}
       <div style={{ padding: '10px 12px', minHeight, cursor: 'text' }} onClick={() => editor.chain().focus().run()}>

@@ -7,7 +7,8 @@ import {
   Columns3, Layers, Trophy, Settings, Inbox, Calendar, Play, OctagonX, CheckCheck, Timer, ListChecks, Clock,
   CircleHelp, Eye, CircleCheck, FileText, Copy, ChevronsLeft, Search, Plus, X, Pencil, Trash2, Lock, Lightbulb,
   LayoutTemplate, User, ChevronDown, Check, Minus, Link, Bold, Italic, List, ListOrdered, Code, Heading2,
-  ExternalLink, Filter, Sparkles, RotateCcw, type LucideIcon,
+  ExternalLink, Filter, Sparkles, RotateCcw, NotebookPen, ImagePlus, ListTodo, FolderGit2, RefreshCw, ArrowUpRight,
+  type LucideIcon,
 } from 'lucide-react'
 
 const ICONS: Record<string, LucideIcon> = {
@@ -18,6 +19,8 @@ const ICONS: Record<string, LucideIcon> = {
   lightbulb: Lightbulb, 'layout-template': LayoutTemplate, user: User, 'chevron-down': ChevronDown, check: Check,
   minus: Minus, link: Link, bold: Bold, italic: Italic, list: List, 'list-ordered': ListOrdered, code: Code,
   heading: Heading2, 'external-link': ExternalLink, filter: Filter, sparkles: Sparkles, 'rotate-ccw': RotateCcw,
+  'notebook-pen': NotebookPen, 'image-plus': ImagePlus, 'list-todo': ListTodo, 'folder-git-2': FolderGit2,
+  'refresh-cw': RefreshCw, 'arrow-up-right': ArrowUpRight,
 }
 
 interface IconProps {

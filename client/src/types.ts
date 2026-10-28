@@ -19,6 +19,7 @@ export interface Feature {
   skin: string | null
   claude_model: ModelId | null
   claude_effort: Effort | null
+  repo_path: string | null
 }
 
 export interface TaskFile {
@@ -50,6 +51,7 @@ export interface Task {
   agent_report: string
   claude_model: ModelId | null
   claude_effort: Effort | null
+  repo_path: string | null
   files: TaskFile[]
 }
 

@@ -90,6 +90,16 @@ select.g-input option { background: var(--bg-1); color: var(--fg-1); }
 .g-notes .ProseMirror blockquote { margin: 0 0 6px; padding-left: 12px; border-left: 3px solid var(--border-strong); color: var(--fg-2); }
 .g-notes .ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--text-faint); float: left; height: 0; pointer-events: none; }
 
+.g-notes .ProseMirror img { max-width: 100%; height: auto; border-radius: var(--radius-xs); border: 1px solid var(--border); margin: 4px 0; display: block; }
+.g-notes .ProseMirror img.ProseMirror-selectednode { outline: 2px solid var(--accent); }
+.g-notes .ProseMirror ul[data-type="taskList"] { list-style: none; padding-left: 2px; }
+.g-notes .ProseMirror ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 8px; }
+.g-notes .ProseMirror ul[data-type="taskList"] li > label { margin-top: 4px; flex-shrink: 0; }
+.g-notes .ProseMirror ul[data-type="taskList"] li > label input { accent-color: var(--accent); cursor: pointer; }
+.g-notes .ProseMirror ul[data-type="taskList"] li > div { flex: 1; min-width: 0; }
+.g-notes .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div { color: var(--fg-3); text-decoration: line-through; }
+.g-md img { max-width: 100%; border-radius: var(--radius-xs); }
+
 /* ---- Rendered Claude report (markdown) */
 .g-md { font-size: 13.5px; line-height: 1.6; color: var(--fg-2); overflow-wrap: anywhere; }
 .g-md > :first-child { margin-top: 0; }

@@ -15,6 +15,7 @@ import {
 import { Icon } from './Icon'
 import { Button, ConfirmDialog, Field, IconButton, Stepper, capStyle, type ConfirmSpec } from './ui'
 import { NotesEditor } from './NotesEditor'
+import { RepoPicker, repoName } from './RepoPicker'
 import { FeaturePicker } from './FeaturePicker'
 import { TemplatePicker } from './TemplatePicker'
 import { AGENT_META } from './Card'
@@ -36,7 +37,7 @@ export interface TaskDrawerProps {
   onOpenTemplates: (spec: TemplatesModalSpec) => void
 }
 
-const DIRTY_KEYS = ['title', 'feature', 'priority', 'est', 'due', 'status', 'desc', 'desc_html', 'subtasks', 'agent_state', 'agent_note', 'claude_model', 'claude_effort'] as const
+const DIRTY_KEYS = ['title', 'feature', 'priority', 'est', 'due', 'status', 'desc', 'desc_html', 'subtasks', 'agent_state', 'agent_note', 'claude_model', 'claude_effort', 'repo_path'] as const
 
 function snapshot(d: Partial<Draft>) {
   return JSON.stringify(DIRTY_KEYS.map((k) => (d as Record<string, unknown>)[k] ?? null))
@@ -48,6 +49,7 @@ function toDraft(t: Task | Draft): Draft {
     id: copy.id, _new: copy._new, title: copy.title, feature: copy.feature, priority: copy.priority, est: copy.est, due: copy.due ?? null,
     status: copy.status, desc: copy.desc ?? '', desc_html: copy.desc_html ?? '', subtasks: copy.subtasks ?? [],
     agent_state: copy.agent_state ?? null, agent_note: copy.agent_note ?? '', claude_model: copy.claude_model ?? null, claude_effort: copy.claude_effort ?? null,
+    repo_path: copy.repo_path ?? null,
   }
 }
 
@@ -281,6 +283,11 @@ export function TaskDrawer(props: TaskDrawerProps) {
                 {CLAUDE_EFFORTS.map((x) => <option key={x} value={x}>{x}</option>)}
               </select>
             </div>
+          </Field>
+
+          <Field label="Git repo" hint="Where a Buddy worker runs for this task">
+            <RepoPicker value={draft.repo_path} onChange={(v) => set('repo_path', v)}
+              emptyLabel={feature?.repo_path ? `Feature: ${repoName(feature.repo_path)}` : 'No repo set'} />
           </Field>
 
           {!isNew && (report || files.length > 0) && (
