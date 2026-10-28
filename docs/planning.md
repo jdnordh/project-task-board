@@ -25,3 +25,4 @@ TASK-014 Universal Time Tracking (All Tasks) — [P2] — in-progress — depend
 TASK-015 Project Billable Toggle in Edit Drawer — [P2] — in-progress — depends: none
 TASK-016 Is Paid Field on Billable Tasks — [P2] — in-progress — depends: none
 TASK-017 Board Column Dot Color Adjustments — [P3] — complete — depends: none
+TASK-018 Style Update V2 Prototype — [P2] — ready — depends: none

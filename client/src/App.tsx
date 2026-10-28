@@ -27,7 +27,7 @@ import './styles/design-system.css'
 function NavRail() {
   return (
     <nav style={{
-      width: 212, flexShrink: 0,
+      width: 160, flexShrink: 0,
       display: 'flex', flexDirection: 'column', gap: 6,
       padding: '20px 14px',
       background: 'rgba(11,18,14,0.72)',

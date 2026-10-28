@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Dark rounded square background -->
+  <rect width="32" height="32" rx="6" ry="6" fill="#0D1117"/>
+  <!-- Kanban column silhouette: 3 vertical bars of different heights in accent green -->
+  <!-- Left column (tall) -->
+  <rect x="5" y="7" width="6" height="18" rx="1.5" fill="#4ADE80"/>
+  <!-- Middle column (medium) -->
+  <rect x="13" y="11" width="6" height="14" rx="1.5" fill="#4ADE80"/>
+  <!-- Right column (short) -->
+  <rect x="21" y="15" width="6" height="10" rx="1.5" fill="#4ADE80"/>
+</svg>
