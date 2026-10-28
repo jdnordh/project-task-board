@@ -11,6 +11,13 @@ function defaultCompare(now) {
   return (a, b) => (a.priority - b.priority) || (dueKey(a, now) - dueKey(b, now));
 }
 
+/**
+ * @template T
+ * @param {T[]} tasks
+ * @param {string} colId
+ * @param {Date} [now]
+ * @returns {T[]}
+ */
 export function sortColumn(tasks, colId, now = new Date()) {
   const list = [...tasks];
   if (colId === 'done') {
@@ -39,7 +46,13 @@ export function matchesSearch(task, q) {
   return task.title.toLowerCase().includes(n) || String(task.desc ?? '').toLowerCase().includes(n);
 }
 
-/** Every card the board would show: Done window, then search, then feature filter. */
+/**
+ * Every card the board would show: Done window, then search, then feature filter.
+ * @template T
+ * @param {T[]} tasks
+ * @param {{ search?: string, featureFilter?: string[], now?: Date }} [opts]
+ * @returns {T[]}
+ */
 export function boardTasks(tasks, { search = '', featureFilter = [], now = new Date() } = {}) {
   return tasks.filter(
     (t) =>

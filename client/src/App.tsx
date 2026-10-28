@@ -66,7 +66,11 @@ export default function App() {
     return s
   }, [])
 
+  const [loadError, setLoadError] = useState(false)
+  const [bootTry, setBootTry] = useState(0)
+
   useEffect(() => {
+    setLoadError(false)
     load().then((s) => {
       const h = parseHidden(s.settings.hidden_pages)
       const ex = s.settings.extras === 'true'
@@ -78,8 +82,8 @@ export default function App() {
       if (readHash().join('/') !== page.join('/')) history.replaceState(null, '', '#/' + page.join('/'))
       setRoute(page)
       setLoaded(true)
-    })
-  }, [load])
+    }, () => setLoadError(true))
+  }, [load, bootTry])
 
   // ---- routing: hashchange is the only caller of setRoute after boot --------
   useEffect(() => {
@@ -304,7 +308,19 @@ export default function App() {
 
   // ---- render -------------------------------------------------------------------
   if (!loaded) {
-    return <div style={{ display: 'grid', placeItems: 'center', height: '100%', color: 'var(--fg-3)' }}>Loading…</div>
+    return (
+      <div style={{ display: 'grid', placeItems: 'center', height: '100%', color: 'var(--fg-3)', textAlign: 'center' }}>
+        {loadError ? (
+          <div>
+            <p style={{ margin: '0 0 12px' }}>Can't reach the Grove server on port 3004. Start it with <code>npm run dev</code>.</p>
+            <button type="button" className="g-btn g-ghost" onClick={() => setBootTry((n) => n + 1)}
+              style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--fg-1)', cursor: 'pointer' }}>
+              Try again
+            </button>
+          </div>
+        ) : 'Loading…'}
+      </div>
+    )
   }
 
   const page = route[0] ?? 'board'
