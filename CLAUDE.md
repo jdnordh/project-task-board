@@ -4,6 +4,7 @@ Grove — local single-user kanban board with a Claude column. Node + Express + 
 
 - Pure rule modules live in `server/src/lib/` (no I/O) and are shared with the client via `client/src/lib.ts`. Put new rules there and test them with `npm test`.
 - Claude sessions report via the `grove-agent` MCP server (`server/mcp/agent-server.js`) or `scripts/grove.js`; both use the REST API, never SQLite.
+- Buddy (`.claude/skills/buddy/`, the foreman skill) uses the `grove-buddy` MCP server (`server/mcp/buddy-server.js`, registered in `.mcp.json`) to plan, create and delegate tasks to worker sessions in each feature's git repo.
 - `npm run dev` · `npm test` · `npm run typecheck` · `npm run feedback`
 
 ## Key Docs

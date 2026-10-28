@@ -11,8 +11,16 @@ The build follows the Cadence rebuild spec (Board, Features, Achievements, Setti
 Browser (React + Vite, :3005)  ──/api proxy──►  Express API (:3004)  ──►  SQLite (node:sqlite, server/data/grove.db)
                                                     ▲
 Claude Code session ── grove-agent MCP (stdio) ─────┤  (REST only, never SQLite)
-                    └─ node scripts/grove.js ───────┘
+  (worker, any repo) └─ node scripts/grove.js ──────┤
+Buddy session ───────── grove-buddy MCP (stdio) ────┘
+  (this repo, .claude/skills/buddy)
 ```
+
+**Buddy** is a foreman skill (`.claude/skills/buddy/`, run from this repo). It plans tasks, creates them
+through `grove-buddy` after one approval, `delegate`s each (same move as a drag into the Claude column) and
+starts one worker session per task in the task's git repo — a desktop-app session, or a subagent when Buddy's
+session is on Remote Control. Workers report through `grove-agent`, registered at user scope so it works in
+any repo. The opening briefing is assembled from `sources/NN-*.md` files, one per data source.
 
 | Path | What it is |
 |------|------------|
@@ -21,10 +29,14 @@ Claude Code session ── grove-agent MCP (stdio) ─────┤  (REST onl
 | `server/src/achievements.js` | Achievement checks over the activity log. |
 | `server/src/app.js` | Express routes and gating. |
 | `server/src/db.js` | Schema, legacy import, settings seed. |
-| `server/mcp/agent-server.js` | `grove-agent` MCP server (stdio). |
+| `server/mcp/agent-server.js` | `grove-agent` MCP server (stdio): worker tools, task images, meeting notes. |
+| `server/mcp/buddy-server.js` | `grove-buddy` MCP server (stdio, this repo's `.mcp.json`): board reads, create/delegate, Claude column, linked files. |
+| `server/mcp/client.js`, `format.js` | Shared REST client, note/image tools and the one-line text formats. |
+| `server/src/repos.js` | Scans the Settings base folder for git repos (direct children with `.git`). |
+| `.claude/skills/buddy/` | The Buddy skill and its briefing source files. |
 | `scripts/grove.js` | CLI fallback for sessions without MCP. |
 | `client/src/App.tsx` | Root: all state, every mutation handler, hash routing. |
-| `client/src/pages/` | Board, Features, Settings, Achievements. |
+| `client/src/pages/` | Board, Features, Notes, Settings, Achievements. |
 | `client/src/components/` | Drawer, templates modal, cards, pickers, shared UI. |
 | `client/src/extras/` | Skins (`useSkin`), camo textures, unlock pop-up. |
 
@@ -32,8 +44,10 @@ Claude Code session ── grove-agent MCP (stdio) ─────┤  (REST onl
 
 | Table | Notes |
 |-------|-------|
-| features | `f-…` ids; name, color (always set), sort_order, completed, skin, claude_model, claude_effort |
-| tasks | `t…` ids; title, feature FK (cascade), priority 1–9, est (h), due `YYYY-MM-DD`, status, `desc` (plaintext mirror) + `desc_html`, subtasks JSON, started/completed_at (server-managed), agent_state/note/at/report, Claude overrides |
+| features | `f-…` ids; name, color (always set), sort_order, completed, skin, claude_model, claude_effort, repo_path |
+| tasks | `t…` ids; title, feature FK (cascade), priority 1–9, est (h), due `YYYY-MM-DD`, status, `desc` (plaintext mirror) + `desc_html`, subtasks JSON, started/completed_at (server-managed), agent_state/note/at/report, Claude overrides, repo_path (overrides the feature's) |
+| notes | `n…` ids; meeting notes: title, meeting_date `YYYY-MM-DD`, feature_id (SET NULL on feature delete), body_html, body_text (always derived on the server by `noteText`), transcript. Not in `/api/state`. |
+| images | `img…` ids; PNG/JPEG/GIF/WebP bytes (≤5 MB, magic-byte checked) for task descriptions and reports, served at `/api/images/<id>` |
 | task_files | HTML files a Claude session linked; bytes copied into `content` (≤10 MB) |
 | task_templates | partial task `fields` JSON; absent key = leave the task's own value |
 | settings | key/value strings (theme, route, user_name, default_est, board options, hidden_pages, extras, achievement_hints) |
@@ -49,6 +63,9 @@ IDs are `prefix + Date.now() base36 + counter`, so they encode creation time.
 - `agentRules()` (lib/agent.js) is the single copy of the session working rules: MCP instructions, end of `get_task`, `how_to_report`.
 - Gated routes (`POST /api/tasks/:id/files`): `Authorization: Bearer $GROVE_TOKEN` + localhost Origin, fail closed. `.env` (git-ignored) is created with a random token on first run.
 - Linked HTML is served from the stored copy with `Content-Security-Policy: sandbox …` (no `allow-same-origin`), only to a localhost Host.
+- Repo for a worker: `resolveRepo(task, feature)` = task's `repo_path` ?? feature's ?? null (lib/agent.js). Paths are stored in full, so changing the base folder never re-points a feature.
+- Notes search (lib/notes.js): every word must match (title, body text, transcript); no words → last 14 days by `meeting_date`, words → all dates.
+- Pictures in a description show as `[image]` in the plain `desc`; workers fetch them with `get_task_images` / `grove.js task-images`.
 - Extras off: no checks, no toasts, skins render as plain colours, Achievements page hidden. Nothing is deleted.
 
 ## Legacy import
