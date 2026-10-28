@@ -68,6 +68,11 @@ export function claudeSetup(task, feature) {
   };
 }
 
+/** The folder a worker runs in: the task's repo, then the feature's, else null. */
+export function resolveRepo(task, feature) {
+  return task?.repo_path ?? feature?.repo_path ?? null;
+}
+
 /** "Opus · high effort", "Sonnet", "max effort", or '' when nothing is set. */
 export function setupLabel(setup) {
   const parts = [];

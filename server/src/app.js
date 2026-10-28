@@ -7,6 +7,7 @@
 
 import express from 'express';
 import { HttpError } from './store.js';
+import { scanRepos } from './repos.js';
 
 const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
@@ -81,6 +82,8 @@ export function createApp(store, { token = '', achievements = null } = {}) {
   app.patch('/api/task-templates/:id', h((req) => store.updateTemplate(req.params.id, req.body)));
   app.post('/api/task-templates/:id/used', h((req) => store.templateUsed(req.params.id)));
   app.delete('/api/task-templates/:id', h((req) => { store.deleteTemplate(req.params.id); }));
+
+  app.get('/api/repos', h(() => scanRepos(store.getSettings().repos_base)));
 
   app.patch('/api/settings', h((req) => store.patchSettings(req.body)));
 

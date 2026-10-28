@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS features (
   completed     INTEGER NOT NULL DEFAULT 0,
   skin          TEXT,
   claude_model  TEXT,
-  claude_effort TEXT
+  claude_effort TEXT,
+  repo_path     TEXT
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
@@ -46,7 +47,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   agent_at      TEXT,
   agent_report  TEXT NOT NULL DEFAULT '',
   claude_model  TEXT,
-  claude_effort TEXT
+  claude_effort TEXT,
+  repo_path     TEXT
 );
 
 CREATE TABLE IF NOT EXISTS task_files (
@@ -86,6 +88,20 @@ CREATE TABLE IF NOT EXISTS achievements (
   seen        INTEGER NOT NULL DEFAULT 0
 );
 `;
+
+/** Columns added after the first release: [table, column, type]. */
+const ADDED_COLUMNS = [
+  ['features', 'repo_path', 'TEXT'],
+  ['tasks', 'repo_path', 'TEXT'],
+];
+
+/** Bring an older database up to the current schema (idempotent). */
+function migrate(db) {
+  for (const [table, col, type] of ADDED_COLUMNS) {
+    const has = db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === col);
+    if (!has) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`);
+  }
+}
 
 /** Legacy `YYYY-MM-DD HH:MM:SS` (UTC, from datetime('now')) → ISO. */
 function legacyTs(s) {
@@ -152,6 +168,7 @@ export function openDb(dbPath, { legacyPath = null, log = console.log } = {}) {
   db.exec('PRAGMA journal_mode = WAL');
   db.exec('PRAGMA foreign_keys = ON');
   db.exec(SCHEMA);
+  migrate(db);
 
   const empty = db.prepare('SELECT COUNT(*) AS n FROM features').get().n === 0;
   const fresh = empty && db.prepare('SELECT COUNT(*) AS n FROM settings').get().n === 0;

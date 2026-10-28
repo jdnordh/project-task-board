@@ -30,3 +30,6 @@ server/data/kanban-backup-*/
 
 # Secrets
 .env
+
+# superpowers plan workspace
+/.superpowers

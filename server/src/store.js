@@ -11,7 +11,7 @@ import {
 } from './lib/constants.js';
 import { deriveDesc } from './lib/desc.js';
 import {
-  agentFieldsOnMove, cleanNote, sessionTitle, claudePrompt, claudeSetup, setupLabel, agentRules,
+  agentFieldsOnMove, cleanNote, sessionTitle, claudePrompt, claudeSetup, setupLabel, agentRules, resolveRepo,
 } from './lib/agent.js';
 import { validateTemplate } from './lib/templates.js';
 import { cleanSkin } from './lib/skins.js';
@@ -26,7 +26,7 @@ export class HttpError extends Error {
 const now = () => new Date().toISOString();
 
 export const TASK_FIELDS = [
-  'title', 'feature', 'priority', 'est', 'due', 'status', 'desc', 'desc_html', 'subtasks', 'claude_model', 'claude_effort',
+  'title', 'feature', 'priority', 'est', 'due', 'status', 'desc', 'desc_html', 'subtasks', 'claude_model', 'claude_effort', 'repo_path',
 ];
 
 export const FILE_MAX_BYTES = 10 * 1024 * 1024;
@@ -36,6 +36,13 @@ const HTML_EXT = /\.html?$/i;
 
 export function validFilePath(p) {
   return typeof p === 'string' && ABS_PATH.test(p) && HTML_EXT.test(p);
+}
+
+/** null/'' → null; otherwise an absolute path (stored with forward slashes). */
+function cleanRepoPath(v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v !== 'string' || !ABS_PATH.test(v.trim())) throw new HttpError(400, 'repo_path must be an absolute folder path or null');
+  return v.trim().replace(/\\/g, '/');
 }
 
 function parseTask(row) {
@@ -100,6 +107,9 @@ function cleanTaskFields(f) {
       case 'claude_effort':
         out.claude_effort = cleanEffort(v);
         break;
+      case 'repo_path':
+        out.repo_path = cleanRepoPath(v);
+        break;
       case 'desc':
       case 'desc_html':
         if (v !== null && typeof v !== 'string') throw new HttpError(400, `${k} must be text`);
@@ -150,8 +160,9 @@ export function createStore(db, { cliPath = '' } = {}) {
     }
     const id = genId('f-');
     const order = q('SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM features').get().n;
-    q(`INSERT INTO features (id, name, color, sort_order, skin, claude_model, claude_effort) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-      .run(id, name.trim(), color, order, cleanSkin(body.skin), cleanModel(body.claude_model), cleanEffort(body.claude_effort));
+    q(`INSERT INTO features (id, name, color, sort_order, skin, claude_model, claude_effort, repo_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(id, name.trim(), color, order, cleanSkin(body.skin), cleanModel(body.claude_model), cleanEffort(body.claude_effort),
+        cleanRepoPath(body.repo_path));
     return getFeature(id);
   }
   function updateFeature(id, body) {
@@ -170,6 +181,7 @@ export function createStore(db, { cliPath = '' } = {}) {
     if ('skin' in body) set.skin = cleanSkin(body.skin);
     if ('claude_model' in body) set.claude_model = cleanModel(body.claude_model);
     if ('claude_effort' in body) set.claude_effort = cleanEffort(body.claude_effort);
+    if ('repo_path' in body) set.repo_path = cleanRepoPath(body.repo_path);
     const keys = Object.keys(set);
     if (keys.length) {
       q(`UPDATE features SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).run(...keys.map((k) => set[k]), id);
@@ -271,13 +283,14 @@ export function createStore(db, { cliPath = '' } = {}) {
       completed_at: status === 'done' ? ts : null,
       claude_model: f.claude_model ?? null,
       claude_effort: f.claude_effort ?? null,
+      repo_path: f.repo_path ?? null,
     };
     q(`INSERT INTO tasks (id, title, feature, priority, est, due, status, "desc", desc_html, subtasks, sort_order,
-        created_at, started_at, completed_at, claude_model, claude_effort)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+        created_at, started_at, completed_at, claude_model, claude_effort, repo_path)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       task.id, task.title, task.feature, task.priority, task.est, task.due, task.status, task.desc, task.desc_html,
       JSON.stringify(task.subtasks), task.sort_order, task.created_at, task.started_at, task.completed_at,
-      task.claude_model, task.claude_effort,
+      task.claude_model, task.claude_effort, task.repo_path,
     );
     const row = getTaskRow(task.id);
     logStatus(row, null);
@@ -382,6 +395,8 @@ export function createStore(db, { cliPath = '' } = {}) {
       session_title: title,
       claude_setup: setup,
       setup_label: setupLabel(setup),
+      repo_path: resolveRepo(t, feature),
+      task_repo_path: t.repo_path ?? null,
       claude_prompt: claudePrompt(t, cliPath, feature?.name),
       how_to_report: agentRules({ cli: `node "${cliPath}"`, id, title }),
     };
