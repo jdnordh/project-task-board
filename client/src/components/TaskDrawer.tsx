@@ -140,7 +140,7 @@ export function TaskDrawer(props: TaskDrawerProps) {
   const files = live?.files ?? []
 
   return createPortal(
-    <div onMouseDown={(e) => { if (e.target === e.currentTarget) attemptClose() }}
+    <div className="g-fade" onMouseDown={(e) => { if (e.target === e.currentTarget) attemptClose() }}
       style={{
         position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,.6)', backdropFilter: 'blur(2px)', padding: 12,
         display: 'flex', justifyContent: 'flex-end', animation: 'g-fade-in var(--dur-fast) both',

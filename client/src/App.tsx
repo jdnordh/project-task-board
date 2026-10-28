@@ -354,14 +354,16 @@ export default function App() {
   }, [])
 
   const updateFeature = useCallback(async (id: string, patch: Partial<Feature>) => {
+    // Always send skin, even when null, so a PATCH never leaves it ambiguous.
+    const body = 'skin' in patch ? patch : { ...patch, skin: features.find((f) => f.id === id)?.skin ?? null }
     setFeatures((fs) => fs.map((f) => (f.id === id ? { ...f, ...patch } : f)))
     try {
-      const f = await api<Feature>('PATCH', `/api/features/${id}`, patch)
+      const f = await api<Feature>('PATCH', `/api/features/${id}`, body)
       setFeatures((fs) => fs.map((x) => (x.id === id ? f : x)))
     } catch {
       load()
     }
-  }, [load])
+  }, [features, load])
 
   const deleteFeature = useCallback(async (id: string) => {
     setFeatures((fs) => fs.filter((f) => f.id !== id))

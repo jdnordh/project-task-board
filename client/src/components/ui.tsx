@@ -181,7 +181,7 @@ export function usePopover(open: boolean, onClose: () => void) {
 
 export function Modal({ children, onClose, z = 80, width = 420 }: { children: ReactNode; onClose: () => void; z?: number; width?: number }) {
   return createPortal(
-    <div onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+    <div className="g-fade" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
       style={{
         position: 'fixed', inset: 0, zIndex: z, background: 'rgba(0,0,0,.6)', backdropFilter: 'blur(2px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, animation: 'g-fade-in var(--dur-fast) both',

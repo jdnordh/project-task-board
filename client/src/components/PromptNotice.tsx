@@ -40,7 +40,7 @@ export function PromptNotice({ spec, onClose }: { spec: NoticeSpec; onClose: () 
   }
 
   return (
-    <div role="status" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+    <div role="status" className="g-rise" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
       style={{
         position: 'fixed', right: 20, bottom: 20, width: 360, maxWidth: 'calc(100vw - 32px)', zIndex: 100,
         background: 'var(--bg-1)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md)',

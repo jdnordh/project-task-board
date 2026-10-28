@@ -103,11 +103,14 @@ select.g-input option { background: var(--bg-1); color: var(--fg-1); }
 .g-md table { border-collapse: collapse; margin: 0 0 8px; }
 .g-md th, .g-md td { border: 1px solid var(--border); padding: 4px 8px; }
 
-/* ---- Pause every animation when idle (tab hidden / window unfocused) or under reduced motion */
-html.g-idle *, html.g-idle *::before, html.g-idle *::after { animation-play-state: paused !important; }
+/* ---- Looping animations (skin layers, the running pulse) pause while idle
+   (tab hidden / window unfocused) and under reduced motion, so they resume
+   where they stopped. One-shot entrances are switched off instead: a paused
+   fade-in would leave its element at opacity 0. */
+html.g-idle .g-skin i, html.g-idle .g-pulse { animation-play-state: paused !important; }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-play-state: paused !important; }
-  .g-pulse { animation: none; }
+  .g-skin i, .g-pulse { animation-play-state: paused !important; }
+  .g-fade, .g-rise { animation: none !important; }
 }
 
 /* ---- Skins: each moving layer travels exactly one tile (see extras/skins.tsx) */
