@@ -123,7 +123,14 @@ export function resolveDue(due, now = new Date()) {
   return null;
 }
 
-/** Scalars replace; notes and subtasks add, never twice. */
+/**
+ * Scalars replace; notes and subtasks add, never twice.
+ * @template T
+ * @param {T} draft
+ * @param {object} fields
+ * @param {{ featureIds?: string[], now?: Date }} [opts]
+ * @returns {T}
+ */
 export function applyTemplate(draft, fields, { featureIds, now = new Date() } = {}) {
   const next = { ...draft, subtasks: [...(draft.subtasks ?? [])] };
   for (const k of ['title', 'status', 'priority', 'est', 'claude_model', 'claude_effort']) {

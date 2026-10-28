@@ -207,7 +207,19 @@ export interface ConfirmSpec {
 
 export function ConfirmDialog({ spec, onClose }: { spec: ConfirmSpec; onClose: () => void }) {
   const okRef = useRef<HTMLButtonElement>(null)
+  const close = useRef(onClose)
+  close.current = onClose
   useEffect(() => { okRef.current?.focus() }, [])
+  // Escape closes the confirm only, never the drawer or modal behind it.
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      close.current()
+    }
+    window.addEventListener('keydown', key, true)
+    return () => window.removeEventListener('keydown', key, true)
+  }, [])
   return (
     <Modal onClose={onClose} z={90}>
       <h3 style={{ fontSize: 17, marginBottom: 8 }}>{spec.title}</h3>
