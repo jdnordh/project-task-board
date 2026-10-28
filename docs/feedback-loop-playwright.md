@@ -2,14 +2,16 @@
 
 ## What It Tests
 
-`npm run feedback` runs two screenshot-only Playwright tests against the running Vite dev server (`http://localhost:5173`):
+`npm run feedback` runs screenshot-only Playwright tests against the running dev server (`http://localhost:3005`):
 
 | Test | Route | Output |
 |------|-------|--------|
-| Board page | `/` | `feedback/screenshots/board.png` |
-| Projects page | `/projects` | `feedback/screenshots/projects.png` |
+| Board page | `#/board` | `feedback/screenshots/board.png` |
+| Features page | `#/features` | `feedback/screenshots/features.png` |
+| Settings page | `#/settings` | `feedback/screenshots/settings.png` |
+| Task drawer (new task, not saved) | `#/board` | `feedback/screenshots/drawer.png` |
 
-These are **visual inspection tests** — no assertions are made. The screenshots let you verify at a glance that a change hasn't broken the layout after each significant code change.
+These are **visual inspection tests**: no assertions and no writes. Rules are covered by `npm test`.
 
 ## How to Run
 

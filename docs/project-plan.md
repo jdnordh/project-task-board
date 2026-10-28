@@ -1,5 +1,7 @@
 # Project Plan — Local Kanban Board
 
+> **Superseded (2026-10-28):** the app was rebuilt from `docs/spec.md`. This plan describes the original projects/time-tracking board and is kept for history.
+
 ## Overview
 Single-user local task management app with a Kanban board UI. Node.js + Express + SQLite backend, React + Vite frontend. No auth, no external services — everything runs locally.
 
