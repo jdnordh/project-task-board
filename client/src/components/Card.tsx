@@ -3,11 +3,12 @@
  * the agent badge, linked files and the Done delta.
  */
 
-import type { CSSProperties, DragEvent } from 'react'
+import type { CSSProperties, DragEvent, KeyboardEvent } from 'react'
 import type { Feature, Task } from '../types'
 import { Icon } from './Icon'
 import { PriorityBadge } from './ui'
 import { FeatureDot, FeatureStripe } from './skin'
+import { SkinBackdrop, useSkin } from '../extras/skins'
 import { DENSITY, dueTone, fmtAge, fmtDue, fmtDuration, fmtHours } from '../lib'
 
 export const AGENT_META: Record<string, { label: string; icon: string; color: string; tint: string }> = {
@@ -85,30 +86,19 @@ export function Card({ task, feature, compact, dragging, onOpen, onCopy, onDragS
   const pad = compact ? 10 : d.pad
   const isDone = task.status === 'done'
 
-  return (
-    <div
-      role="button" tabIndex={0} draggable className="g-card"
-      onClick={onOpen}
-      onKeyDown={(e) => { if (e.key === 'Enter') onOpen() }}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      style={{
-        position: 'relative', padding: `${pad}px ${pad}px ${pad}px ${pad + 4}px`, borderRadius: 'var(--radius-sm)',
-        border: '1px solid var(--border)', cursor: 'grab', opacity: dragging ? 0.4 : 1, overflow: 'hidden',
-        background: `linear-gradient(160deg, color-mix(in srgb, ${color} 9%, var(--bg-1)), color-mix(in srgb, ${color} 4%, var(--bg-1)))`,
-        display: 'flex', flexDirection: 'column', gap: compact ? 8 : 10, outline: 'none',
-      }}>
-      {feature && <FeatureStripe feature={feature} />}
+  const skin = useSkin(feature?.skin)
+  const content = (
+    <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
         {feature && <FeatureDot feature={feature} size={7} />}
-        <span style={{ flex: 1, fontSize: d.meta, color: 'var(--fg-3)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={{ flex: 1, fontSize: d.meta, color: skin ? 'var(--fg-2)' : 'var(--fg-3)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {feature?.name ?? '—'}
         </span>
         <PriorityBadge n={task.priority} />
       </div>
       <div className="g-clamp" style={{
         WebkitLineClamp: d.titleLines, fontSize: compact ? 13.5 : d.title, color: 'var(--fg-1)', fontWeight: 650, lineHeight: 1.35,
-        overflowWrap: 'anywhere', textDecoration: isDone ? 'none' : undefined,
+        overflowWrap: 'anywhere',
       }}>
         {task.title}
       </div>
@@ -139,6 +129,47 @@ export function Card({ task, feature, compact, dragging, onOpen, onCopy, onDragS
         </div>
       )}
       {isDone && <DoneDelta task={task} />}
+    </>
+  )
+
+  const shell = {
+    role: 'button', tabIndex: 0, draggable: true,
+    onClick: onOpen,
+    onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => { if (e.key === 'Enter') onOpen() },
+    onDragStart, onDragEnd,
+  } as const
+
+  if (skin) {
+    // Skinned: square clip (a rounded clip costs a GPU pass per card per
+    // frame); a final frame draws the ring and paints the page colour over
+    // the corners.
+    return (
+      <div {...shell} style={{ position: 'relative', padding: `${pad}px`, cursor: 'grab', opacity: dragging ? 0.4 : 1, overflow: 'hidden', outline: 'none' }}>
+        <SkinBackdrop skin={skin} />
+        <div style={{
+          position: 'relative', display: 'flex', flexDirection: 'column', gap: compact ? 8 : 10,
+          background: 'var(--skin-glass-bg)', border: '1px solid var(--skin-glass-border)', borderRadius: 7, padding: 8, margin: -8,
+        }}>
+          {content}
+        </div>
+        <span aria-hidden="true" style={{
+          position: 'absolute', inset: 0, borderRadius: 'var(--radius-sm)', pointerEvents: 'none',
+          boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.16), 0 0 0 14px var(--bg-0)',
+        }} />
+      </div>
+    )
+  }
+
+  return (
+    <div {...shell} className="g-card"
+      style={{
+        position: 'relative', padding: `${pad}px ${pad}px ${pad}px ${pad + 4}px`, borderRadius: 'var(--radius-sm)',
+        border: '1px solid var(--border)', cursor: 'grab', opacity: dragging ? 0.4 : 1, overflow: 'hidden',
+        background: `linear-gradient(160deg, color-mix(in srgb, ${color} 9%, var(--bg-1)), color-mix(in srgb, ${color} 4%, var(--bg-1)))`,
+        display: 'flex', flexDirection: 'column', gap: compact ? 8 : 10, outline: 'none',
+      }}>
+      {feature && <FeatureStripe feature={feature} />}
+      {content}
     </div>
   )
 }

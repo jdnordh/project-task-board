@@ -20,6 +20,12 @@ import { TemplatesModal, type TemplatesModalSpec } from './components/TemplatesM
 import { BoardPage } from './pages/BoardPage'
 import { FeaturesPage } from './pages/FeaturesPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { AchievementsPage } from './pages/AchievementsPage'
+import { ExtrasContext, type ExtrasState } from './extras/skins'
+import { drawTextures } from './extras/textures'
+import { UnlockToasts, expandQueue, type ToastItem } from './extras/UnlockToasts'
+import type { AchievementsPayload } from './extras/types'
+import { MUTATION_EVENT } from './api'
 
 const MERGE_KEYS = ['agent_state', 'agent_note', 'agent_at', 'agent_report', 'files', 'subtasks'] as const
 const NARROW = '(max-width: 1100px)'
@@ -49,6 +55,9 @@ export default function App() {
   const [addFeatureSignal, setAddFeatureSignal] = useState(0)
   const [collapsed, setCollapsed] = useState(() => window.matchMedia(NARROW).matches)
   const cliRef = useRef('')
+  const [ach, setAch] = useState<AchievementsPayload | null>(null)
+  const [toasts, setToasts] = useState<ToastItem[]>([])
+  const toastKeys = useRef(new Set<string>())
 
   const extras = settings.extras === 'true'
   const hidden = useMemo(() => parseHidden(settings.hidden_pages), [settings.hidden_pages])
@@ -176,6 +185,84 @@ export default function App() {
     window.addEventListener('focus', pollAgents)
     return () => window.removeEventListener('focus', pollAgents)
   }, [pollAgents])
+
+  // ---- Extras: achievement checks, textures, unlock toasts ------------------------
+  const runCheck = useCallback(async (action: boolean) => {
+    try {
+      const r = await api<AchievementsPayload>('POST', '/api/achievements/check', { action })
+      setAch(r)
+      const fresh = expandQueue(r.queue, r.hint).filter((t) => !toastKeys.current.has(t.key))
+      fresh.forEach((t) => toastKeys.current.add(t.key))
+      if (fresh.length) setToasts((q) => [...q, ...fresh])
+    } catch {
+      // try again on the next write or focus
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!loaded) return
+    if (!extras) {
+      setToasts([])
+      toastKeys.current.clear()
+      return
+    }
+    drawTextures()
+    runCheck(false)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let pendingAction = false
+    const schedule = (action: boolean) => {
+      pendingAction = pendingAction || action
+      clearTimeout(timer)
+      timer = setTimeout(() => { runCheck(pendingAction); pendingAction = false }, 1500)
+    }
+    const onMutation = () => schedule(true)
+    const onFocus = () => schedule(false)
+    window.addEventListener(MUTATION_EVENT, onMutation)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener(MUTATION_EVENT, onMutation)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [extras, loaded, runCheck])
+
+  // Pause every animation while the tab is hidden or the window unfocused.
+  useEffect(() => {
+    const sync = () => document.documentElement.classList.toggle('g-idle', document.hidden || !document.hasFocus())
+    sync()
+    document.addEventListener('visibilitychange', sync)
+    window.addEventListener('blur', sync)
+    window.addEventListener('focus', sync)
+    return () => {
+      document.removeEventListener('visibilitychange', sync)
+      window.removeEventListener('blur', sync)
+      window.removeEventListener('focus', sync)
+    }
+  }, [])
+
+  const extrasState = useMemo<ExtrasState>(() => ({
+    extras,
+    points: ach?.points ?? 0,
+    camos: new Set(ach?.camos ?? []),
+    earned: new Set((ach?.achievements ?? []).filter((a) => a.unlocked_at).map((a) => a.id)),
+  }), [extras, ach])
+
+  const onToastShow = useCallback((t: ToastItem) => {
+    // Mark seen as it shows, so a reload mid-queue does not replay it.
+    if (t.type === 'ach') api('POST', '/api/achievements/seen', { ids: [t.id] }).catch(() => {})
+    if (t.type === 'hint') api('POST', '/api/achievements/hint-seen', { id: t.id }).catch(() => {})
+  }, [])
+  const onToastDone = useCallback((key: string) => setToasts((q) => q.filter((t) => t.key !== key)), [])
+  const onToastSkip = useCallback(() => {
+    setToasts((q) => {
+      const rest = q.slice(1)
+      const ids = rest.filter((t) => t.type === 'ach').map((t) => t.id)
+      if (ids.length) api('POST', '/api/achievements/seen', { ids }).catch(() => {})
+      const hint = rest.find((t) => t.type === 'hint')
+      if (hint) api('POST', '/api/achievements/hint-seen', { id: hint.id }).catch(() => {})
+      return q.slice(0, 1)
+    })
+  }, [])
 
   // ---- tasks --------------------------------------------------------------------
   const activeFeatures = useMemo(() => features.filter((f) => !f.completed), [features])
@@ -331,6 +418,7 @@ export default function App() {
   }
 
   return (
+    <ExtrasContext.Provider value={extrasState}>
     <div style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden', fontFamily: 'var(--font-body)' }}>
       <Sidebar page={page} hidden={effHidden} collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} counts={counts} />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden' }}>
@@ -357,6 +445,7 @@ export default function App() {
             />
           )}
           {page === 'settings' && <SettingsPage settings={settings} onSave={saveSettings} />}
+          {page === 'achievements' && <AchievementsPage data={ach} target={route[1]} />}
         </main>
       </div>
 
@@ -386,6 +475,11 @@ export default function App() {
       )}
       {notice && <PromptNotice key={notice.key} spec={notice} onClose={() => setNotice(null)} />}
       {confirm && <ConfirmDialog spec={confirm} onClose={() => setConfirm(null)} />}
+      {extras && (
+        <UnlockToasts queue={toasts} canOpen={!effHidden.includes('achievements')}
+          onShow={onToastShow} onDone={onToastDone} onSkipAll={onToastSkip} onOpen={(target) => navigate('achievements', target)} />
+      )}
     </div>
+    </ExtrasContext.Provider>
   )
 }

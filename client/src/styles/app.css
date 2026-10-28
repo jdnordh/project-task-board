@@ -109,3 +109,7 @@ html.g-idle *, html.g-idle *::before, html.g-idle *::after { animation-play-stat
   *, *::before, *::after { animation-play-state: paused !important; }
   .g-pulse { animation: none; }
 }
+
+/* ---- Skins: each moving layer travels exactly one tile (see extras/skins.tsx) */
+@keyframes g-pan-x { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(var(--g-d), 0, 0); } }
+@keyframes g-pan-y { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, var(--g-d), 0); } }

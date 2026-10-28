@@ -19,6 +19,7 @@ import { FeaturePicker } from './FeaturePicker'
 import { TemplatePicker } from './TemplatePicker'
 import { AGENT_META } from './Card'
 import type { TemplatesModalSpec } from './TemplatesModal'
+import { SkinBackdrop, useSkin } from '../extras/skins'
 
 export interface TaskDrawerProps {
   task: Task | Draft
@@ -129,7 +130,8 @@ export function TaskDrawer(props: TaskDrawerProps) {
   const lit = duePick && (duePick === 'today' ? today : eow) === draft.due ? duePick
     : draft.due === today ? 'today' : draft.due === eow ? 'eow' : null
 
-  const headerTint = feature ? `linear-gradient(135deg, color-mix(in srgb, ${feature.color} 22%, var(--bg-1)), color-mix(in srgb, ${feature.color} 8%, var(--bg-1)))` : 'var(--bg-1)'
+  const skin = useSkin(feature?.skin)
+  const headerTint = skin ? 'transparent' : feature ? `linear-gradient(135deg, color-mix(in srgb, ${feature.color} 22%, var(--bg-1)), color-mix(in srgb, ${feature.color} 8%, var(--bg-1)))` : 'var(--bg-1)'
   const savedState = live?.agent_state ?? null
   const stateKey = draft.agent_state ?? 'waiting'
   const subsDone = subtasks.filter((s) => s.done).length
@@ -147,12 +149,25 @@ export function TaskDrawer(props: TaskDrawerProps) {
         style={{
           width: 'min(540px, 100%)', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-1)',
           border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)', overflow: 'hidden',
+          position: 'relative',
         }}>
-        <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px 14px 20px', background: headerTint, borderBottom: '1px solid var(--border)' }}>
-          <span style={{ ...capStyle, fontSize: 11, color: 'var(--fg-2)', flex: 1 }}>{isNew ? 'New task' : 'Edit task'}</span>
-          <IconButton icon="x" label="Close" onClick={attemptClose} />
+        {/* A skinned feature fills the whole drawer; body and footer then sit on one glass panel. */}
+        {skin && <SkinBackdrop skin={skin} />}
+        <header style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px 14px 20px', background: headerTint, borderBottom: skin ? 'none' : '1px solid var(--border)' }}>
+          <span style={{ flex: 1 }}>
+            <span style={{
+              ...capStyle, fontSize: 11, color: skin ? 'var(--fg-1)' : 'var(--fg-2)',
+              ...(skin ? { background: 'var(--skin-glass-bg)', border: '1px solid var(--skin-glass-border)', borderRadius: 7, padding: '4px 9px' } : {}),
+            }}>{isNew ? 'New task' : 'Edit task'}</span>
+          </span>
+          <IconButton icon="x" label="Close" onClick={attemptClose}
+            style={skin ? { background: 'var(--skin-glass-bg)', color: 'var(--fg-1)', border: '1px solid var(--skin-glass-border)' } : undefined} />
         </header>
 
+        <div style={{
+          position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
+          ...(skin ? { margin: '0 12px 12px', background: 'var(--skin-glass-bg)', border: '1px solid var(--skin-glass-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' } : {}),
+        }}>
         <div style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
           {draft.status === 'claude' && (
             <ClaudeBand
@@ -273,13 +288,14 @@ export function TaskDrawer(props: TaskDrawerProps) {
           )}
         </div>
 
-        <footer style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', borderTop: '1px solid var(--border)', background: 'var(--bg-1)' }}>
+        <footer style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', borderTop: '1px solid var(--border)', background: skin ? 'transparent' : 'var(--bg-1)' }}>
           {!isNew && <Button variant="danger" icon="trash-2" onClick={askDelete}>Delete</Button>}
           <Button icon="layout-template" onClick={() => onOpenTemplates({ prefill: { name: draft.title.trim(), fields: fieldsFromTask(draft) } })}>Save as template</Button>
           <span style={{ flex: 1 }} />
           <Button onClick={attemptClose}>Cancel</Button>
           <Button variant="primary" disabled={!draft.title.trim() || saving} onClick={save}>{isNew ? 'Create task' : 'Save changes'}</Button>
         </footer>
+        </div>
       </div>
       {confirm && <ConfirmDialog spec={confirm} onClose={() => setConfirm(null)} />}
     </div>,
