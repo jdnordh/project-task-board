@@ -1,38 +1,23 @@
 /**
- * index.js — Express application entry point.
- *
- * Initialises the database (via db.js import) then starts an HTTP server
- * on port 3001. The Vite dev server proxies /api/* to this port.
+ * index.js — server entry point. Opens the one SQLite connection, then
+ * listens on PORT (default 3004). Vite proxies /api/* here.
  */
 
-const express = require('express');
+import path from 'node:path';
+import { openDb } from './db.js';
+import { createStore } from './store.js';
+import { createApp } from './app.js';
+import { REPO_ROOT, ensureEnv } from './env.js';
 
-// Import db singleton to trigger schema initialisation on startup.
-require('./db');
+const env = ensureEnv();
+const PORT = Number(env.PORT) || 3004;
+const DATA = path.join(REPO_ROOT, 'server', 'data');
+const CLI_PATH = path.join(REPO_ROOT, 'scripts', 'grove.js').replace(/\\/g, '/');
 
-const { router: projectsRouter } = require('./routes/projects');
-const tasksRouter = require('./routes/tasks');
-const subtasksRouter = require('./routes/subtasks');
-const sessionsRouter = require('./routes/sessions');
-
-const app = express();
-const PORT = 3001;
-
-app.use(express.json());
-
-/**
- * GET /api/health
- * Liveness check — returns { ok: true }.
- */
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true });
-});
-
-app.use('/api/projects', projectsRouter);
-app.use('/api/tasks', tasksRouter);
-app.use('/api/subtasks', subtasksRouter);
-app.use('/api/sessions', sessionsRouter);
+const db = openDb(path.join(DATA, 'grove.db'), { legacyPath: path.join(DATA, 'kanban.db') });
+const store = createStore(db, { cliPath: CLI_PATH });
+const app = createApp(store, { token: env.GROVE_TOKEN });
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Grove server on http://localhost:${PORT}`);
 });

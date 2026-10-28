@@ -23,3 +23,10 @@ client/dist/
 feedback/screenshots/*.png
 /test-results
 /.claude/worktrees
+
+# Grove database (created at runtime) and the legacy-import backup
+server/data/grove.db*
+server/data/kanban-backup-*/
+
+# Secrets
+.env

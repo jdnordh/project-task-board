@@ -1,13 +1,17 @@
 {
-  "name": "project-task-board-server",
-  "version": "1.0.0",
-  "description": "Express API server for the local Kanban board",
+  "name": "grove-server",
+  "version": "2.0.0",
+  "description": "Express + node:sqlite API server for the Grove board",
+  "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node src/index.js"
+    "start": "node --disable-warning=ExperimentalWarning src/index.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch-path=src src/index.js",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/**/*.test.js\""
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "express": "^4.19.2",
+    "zod": "^4.6.7"
   }
 }

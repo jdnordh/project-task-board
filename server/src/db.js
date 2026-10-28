@@ -1,89 +1,174 @@
 /**
- * db.js — node:sqlite singleton.
+ * db.js — opens the SQLite database (node:sqlite), creates the schema,
+ * imports the legacy board once, and seeds settings.
  *
- * Uses the Node.js built-in SQLite module (available since Node 22.5, stable in Node 24).
- * No native compilation required.
- *
- * Opens (or creates) the SQLite database at server/data/kanban.db,
- * enables foreign-key enforcement and WAL journal mode, then
- * creates all 5 schema tables if they do not already exist.
+ * One connection per process. The legacy import ATTACHes a backup copy of
+ * the old kanban.db on that same connection, so the original files are
+ * never touched.
  */
 
-const { DatabaseSync } = require('node:sqlite');
-const path = require('path');
-const fs = require('fs');
+import { DatabaseSync } from 'node:sqlite';
+import fs from 'node:fs';
+import path from 'node:path';
+import { genId } from './lib/ids.js';
+import { FEATURE_PALETTE, DEFAULT_EST } from './lib/constants.js';
+import { localDate } from './lib/dates.js';
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const DB_PATH = path.join(DATA_DIR, 'kanban.db');
+const SCHEMA = `
+CREATE TABLE IF NOT EXISTS features (
+  id            TEXT PRIMARY KEY,
+  name          TEXT NOT NULL,
+  color         TEXT NOT NULL,
+  sort_order    INTEGER NOT NULL,
+  completed     INTEGER NOT NULL DEFAULT 0,
+  skin          TEXT,
+  claude_model  TEXT,
+  claude_effort TEXT
+);
 
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+CREATE TABLE IF NOT EXISTS tasks (
+  id            TEXT PRIMARY KEY,
+  title         TEXT NOT NULL,
+  feature       TEXT NOT NULL REFERENCES features(id) ON DELETE CASCADE,
+  priority      INTEGER NOT NULL DEFAULT 3,
+  est           REAL NOT NULL DEFAULT 2,
+  due           TEXT,
+  status        TEXT NOT NULL DEFAULT 'backlog',
+  "desc"        TEXT NOT NULL DEFAULT '',
+  desc_html     TEXT NOT NULL DEFAULT '',
+  subtasks      TEXT NOT NULL DEFAULT '[]',
+  sort_order    INTEGER NOT NULL DEFAULT 0,
+  created_at    TEXT,
+  started_at    TEXT,
+  completed_at  TEXT,
+  agent_state   TEXT,
+  agent_note    TEXT NOT NULL DEFAULT '',
+  agent_at      TEXT,
+  agent_report  TEXT NOT NULL DEFAULT '',
+  claude_model  TEXT,
+  claude_effort TEXT
+);
+
+CREATE TABLE IF NOT EXISTS task_files (
+  id         TEXT PRIMARY KEY,
+  task_id    TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL DEFAULT 'file',
+  path       TEXT NOT NULL,
+  title      TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  content    BLOB,
+  stored_at  TEXT,
+  UNIQUE (task_id, path)
+);
+
+CREATE TABLE IF NOT EXISTS task_templates (
+  id           TEXT PRIMARY KEY,
+  name         TEXT NOT NULL,
+  fields       TEXT NOT NULL DEFAULT '{}',
+  created_at   TEXT NOT NULL,
+  updated_at   TEXT NOT NULL,
+  last_used_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+
+CREATE TABLE IF NOT EXISTS activity_log (
+  id     INTEGER PRIMARY KEY AUTOINCREMENT,
+  at     TEXT NOT NULL,
+  kind   TEXT NOT NULL,
+  ref_id TEXT,
+  data   TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE TABLE IF NOT EXISTS achievements (
+  id          TEXT PRIMARY KEY,
+  unlocked_at TEXT NOT NULL,
+  seen        INTEGER NOT NULL DEFAULT 0
+);
+`;
+
+/** Legacy `YYYY-MM-DD HH:MM:SS` (UTC, from datetime('now')) → ISO. */
+function legacyTs(s) {
+  if (!s) return null;
+  return s.includes('T') ? s : s.replace(' ', 'T') + 'Z';
 }
 
-const db = new DatabaseSync(DB_PATH);
+const LEGACY_STATUS = { backlog: 'backlog', ready: 'week', in_progress: 'progress', blocked: 'blocked', done: 'done' };
 
-db.exec('PRAGMA foreign_keys = ON');
-db.exec('PRAGMA journal_mode = WAL');
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS projects (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    color TEXT NOT NULL,
-    billable INTEGER NOT NULL DEFAULT 0,
-    completed INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    priority INTEGER NOT NULL DEFAULT 2,
-    notes TEXT,
-    status TEXT NOT NULL DEFAULT 'backlog',
-    done_at TEXT,
-    manual_adjustment_minutes INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS subtasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-    label TEXT NOT NULL,
-    checked INTEGER NOT NULL DEFAULT 0
-  );
-
-  CREATE TABLE IF NOT EXISTS blocked_reasons (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-    reason TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS time_sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-    started_at TEXT NOT NULL,
-    ended_at TEXT,
-    minutes INTEGER
-  );
-`);
-
-// Runtime migration: add is_paid column if it doesn't exist (idempotent — caught and swallowed on re-run).
-try {
-  db.exec(`ALTER TABLE tasks ADD COLUMN is_paid INTEGER NOT NULL DEFAULT 0`);
-} catch {
-  // Column already exists — ignore.
+/**
+ * Import the old projects/tasks board. Copies kanban.db (+ -wal/-shm) into a
+ * backup folder first and reads the copy, so the originals stay as they are.
+ */
+function importLegacy(db, legacyPath, log) {
+  const dir = path.join(path.dirname(legacyPath), `kanban-backup-${localDate()}`);
+  fs.mkdirSync(dir, { recursive: true });
+  for (const ext of ['', '-wal', '-shm']) {
+    if (fs.existsSync(legacyPath + ext)) fs.copyFileSync(legacyPath + ext, path.join(dir, path.basename(legacyPath) + ext));
+  }
+  const copy = path.join(dir, path.basename(legacyPath));
+  db.prepare('ATTACH DATABASE ? AS legacy').run(copy);
+  try {
+    const tables = new Set(db.prepare("SELECT name FROM legacy.sqlite_master WHERE type='table'").all().map((r) => r.name));
+    if (!tables.has('projects') || !tables.has('tasks')) return;
+    const projects = db.prepare('SELECT * FROM legacy.projects ORDER BY id').all();
+    const featureId = new Map();
+    const insFeature = db.prepare('INSERT INTO features (id, name, color, sort_order, completed) VALUES (?, ?, ?, ?, ?)');
+    projects.forEach((p, i) => {
+      const id = genId('f-');
+      featureId.set(p.id, id);
+      insFeature.run(id, p.name, p.color || FEATURE_PALETTE[i % FEATURE_PALETTE.length].hex, i + 1, p.completed ? 1 : 0);
+    });
+    const subs = new Map();
+    if (tables.has('subtasks')) {
+      for (const s of db.prepare('SELECT * FROM legacy.subtasks ORDER BY id').all()) {
+        if (!subs.has(s.task_id)) subs.set(s.task_id, []);
+        subs.get(s.task_id).push({ t: s.label, done: !!s.checked });
+      }
+    }
+    const insTask = db.prepare(`INSERT INTO tasks
+      (id, title, feature, priority, est, status, "desc", desc_html, subtasks, sort_order, created_at, started_at, completed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, '', ?, ?, ?, ?, ?)`);
+    const tasks = db.prepare('SELECT * FROM legacy.tasks ORDER BY id').all();
+    tasks.forEach((t, i) => {
+      const feature = featureId.get(t.project_id);
+      if (!feature) return;
+      const status = LEGACY_STATUS[t.status] ?? 'backlog';
+      const started = status === 'progress' || status === 'done' ? legacyTs(t.updated_at ?? t.created_at) : null;
+      insTask.run(
+        genId('t'), t.name, feature, Math.min(9, Math.max(1, t.priority ?? 3)), DEFAULT_EST, status,
+        t.notes ?? '', JSON.stringify(subs.get(t.id) ?? []), i + 1,
+        legacyTs(t.created_at), started, status === 'done' ? legacyTs(t.done_at ?? t.updated_at) : null,
+      );
+    });
+    log(`Imported ${projects.length} projects and ${tasks.length} tasks from ${legacyPath} (backup: ${dir})`);
+  } finally {
+    db.exec('DETACH DATABASE legacy');
+  }
 }
 
-// Close any time sessions left open from a previous run (tab/server crash recovery).
-db.exec(`
-  UPDATE time_sessions
-  SET ended_at = datetime('now'),
-      minutes = MAX(1, CAST((julianday('now') - julianday(started_at)) * 1440 AS INTEGER))
-  WHERE ended_at IS NULL
-`);
+export function openDb(dbPath, { legacyPath = null, log = console.log } = {}) {
+  if (dbPath !== ':memory:') fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+  const db = new DatabaseSync(dbPath);
+  db.exec('PRAGMA journal_mode = WAL');
+  db.exec('PRAGMA foreign_keys = ON');
+  db.exec(SCHEMA);
 
-module.exports = db;
+  const empty = db.prepare('SELECT COUNT(*) AS n FROM features').get().n === 0;
+  const fresh = empty && db.prepare('SELECT COUNT(*) AS n FROM settings').get().n === 0;
+  if (fresh && legacyPath && fs.existsSync(legacyPath)) {
+    try {
+      importLegacy(db, legacyPath, log);
+    } catch (err) {
+      log(`Legacy import failed, starting fresh: ${err.message}`);
+    }
+  }
+  if (db.prepare('SELECT COUNT(*) AS n FROM features').get().n === 0 && fresh) {
+    db.prepare('INSERT INTO features (id, name, color, sort_order) VALUES (?, ?, ?, 1)').run(genId('f-'), 'General', FEATURE_PALETTE[0].hex);
+  }
+  if (db.prepare('SELECT COUNT(*) AS n FROM settings').get().n === 0) {
+    const ins = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)');
+    ins.run('theme', 'dark');
+    ins.run('route', 'board');
+  }
+  return db;
+}
