@@ -13,50 +13,15 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { REPO_ROOT, readEnv } from '../src/env.js';
 import { agentRules } from '../src/lib/agent.js';
 import { AGENT_STATES } from '../src/lib/constants.js';
 import { formatTask } from './format-task.js';
-
-const REPO = REPO_ROOT.replace(/\\/g, '/');
-
-class Unreachable extends Error {}
-
-async function call(method, url, body, { bearer = false } = {}) {
-  const env = readEnv();
-  const port = Number(env.PORT) || 3004;
-  const headers = { 'Content-Type': 'application/json' };
-  if (bearer && env.GROVE_TOKEN) headers.Authorization = `Bearer ${env.GROVE_TOKEN}`;
-  let res;
-  try {
-    res = await fetch(`http://localhost:${port}${url}`, {
-      method, headers, body: body === undefined ? undefined : JSON.stringify(body),
-    });
-  } catch {
-    throw new Unreachable(`Grove is not running at localhost:${port}. Ask the user to start it (npm run dev in ${REPO}).`);
-  }
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
-  return json;
-}
-
-const text = (s) => ({ content: [{ type: 'text', text: s }] });
-
-/** Run a tool body; turn failures into a readable tool error. */
-const tool = (fn) => async (args) => {
-  try {
-    return text(await fn(args));
-  } catch (err) {
-    return { ...text(err.message), isError: true };
-  }
-};
+import { call, tool, taskId, registerNoteTools, registerImageTools } from './client.js';
 
 const server = new McpServer(
-  { name: 'grove-agent', version: '1.0.0' },
+  { name: 'grove-agent', version: '1.1.0' },
   { instructions: 'For a Grove task id the user gives you, call get_task first.\n' + agentRules().join('\n') },
 );
-
-const taskId = z.string().min(1).describe('The Grove task id, e.g. tmh2k3x1');
 
 server.registerTool('get_task', {
   description: 'Read a Grove task: title, description, subtasks, your last status, linked files, report, and how to report.',
@@ -104,5 +69,8 @@ server.registerTool('link_task_file', {
   const r = await call('POST', `/api/tasks/${encodeURIComponent(task_id)}/files`, { path, title }, { bearer: true });
   return `Linked. Put this in your report: ${r.markdown}`;
 }));
+
+registerImageTools(server);
+registerNoteTools(server);
 
 await server.connect(new StdioServerTransport());

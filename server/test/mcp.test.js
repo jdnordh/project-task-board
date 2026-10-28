@@ -17,3 +17,11 @@ test('get_task text lists subtasks by number and ends with the rules', () => {
   assert.ok(out.includes('How to report:'));
   assert.match(out.at(-1), /^The Grove server must be running/);
 });
+
+test('get_task text shows the folder when the task has one', () => {
+  const out = formatTask({
+    id: 't1', title: 'Do it', feature_name: 'Core', session_title: 'Core: Do it', setup_label: '', repo_path: 'C:/src/app',
+    status: 'claude', priority: 2, est: 1, due: null, desc: '', subtasks: [], agent_state: null, agent_note: '', files: [], agent_report: '',
+  }).split('\n');
+  assert.ok(out.includes('Folder: C:/src/app'));
+});

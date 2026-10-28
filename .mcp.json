@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "grove-buddy": {
+      "command": "node",
+      "args": ["server/mcp/buddy-server.js"]
+    }
+  }
+}

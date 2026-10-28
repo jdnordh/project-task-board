@@ -60,6 +60,7 @@ export function createApp(store, { token = '', achievements = null } = {}) {
   app.patch('/api/tasks/:id', h((req) => store.updateTask(req.params.id, req.body)));
   app.delete('/api/tasks/:id', h((req) => { store.deleteTask(req.params.id); }));
   app.get('/api/tasks/:id', h((req) => store.agentView(req.params.id)));
+  app.post('/api/tasks/:id/delegate', h((req) => store.delegateTask(req.params.id)));
   app.get('/api/agent-status', h(() => store.agentStatus()));
   app.post('/api/tasks/:id/agent', h((req) => store.setAgentStatus(req.params.id, req.body)));
   app.post('/api/tasks/:id/subtask', h((req) => store.setSubtask(req.params.id, req.body)));

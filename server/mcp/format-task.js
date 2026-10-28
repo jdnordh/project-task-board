@@ -13,6 +13,7 @@ export function formatTask(t) {
   ];
   if (t.user_name) lines.push(`User's name: ${t.user_name}`);
   if (t.setup_label) lines.push(`Suggested setup: ${t.setup_label}`);
+  if (t.repo_path) lines.push(`Folder: ${t.repo_path}`);
   lines.push(`Status: ${t.status} · Priority P${t.priority} (1 is most urgent) · Estimate ${fmtHours(t.est)} · Due ${t.due ?? 'no date'}`);
   lines.push(`Description: ${t.desc?.trim() ? t.desc : '(none)'}`);
   if (t.subtasks.length) {

@@ -510,6 +510,19 @@ export function createStore(db, { cliPath = '' } = {}) {
     };
   }
 
+  /** Hand a task to Claude: the same move as a drag, then what a worker needs. */
+  function delegateTask(id) {
+    const before = requireTask(id);
+    const hadFiles = filesFor(id);
+    updateTask(id, { status: 'claude' });
+    const v = agentView(id);
+    return {
+      task_id: v.id, title: v.title, feature_name: v.feature_name, prompt: v.claude_prompt, session_title: v.session_title,
+      setup_label: v.setup_label, model: v.claude_setup.model, effort: v.claude_setup.effort, repo_path: v.repo_path,
+      was_in_claude: before.status === 'claude', had_report: !!before.agent_report, file_ids: hadFiles.map((f) => f.id),
+    };
+  }
+
   function agentStatus() {
     const files = filesByTask();
     const features = new Map(listFeatures().map((f) => [f.id, f.name]));
@@ -572,7 +585,7 @@ export function createStore(db, { cliPath = '' } = {}) {
     filesFor, linkFile, deleteFile, fileContent,
     saveImage, imageContent, taskImages, uploadReportImage,
     listNotes, getNote, createNote, updateNote, deleteNote,
-    setAgentStatus, setSubtask, setReport, agentView, agentStatus,
+    setAgentStatus, setSubtask, setReport, agentView, agentStatus, delegateTask,
     listTemplates, createTemplate, updateTemplate, templateUsed, deleteTemplate,
     getState,
   };
