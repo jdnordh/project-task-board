@@ -8,6 +8,7 @@
 export const PAGES = [
   { id: 'board', label: 'Board', icon: 'columns-3' },
   { id: 'features', label: 'Features', icon: 'layers' },
+  { id: 'notes', label: 'Notes', icon: 'notebook-pen' },
   { id: 'achievements', label: 'Achievements', icon: 'trophy', extras: true },
   { id: 'settings', label: 'Settings', icon: 'settings' },
 ];

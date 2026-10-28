@@ -209,7 +209,8 @@ test('page visibility rules', () => {
   assert.deepEqual(parseHidden('nope'), []);
   assert.deepEqual(parseHidden(null), []);
   assert.deepEqual(effectiveHidden([], false), ['achievements']);
-  assert.equal(firstVisible(['board', 'features'], false), 'settings');
+  assert.equal(firstVisible(['board', 'features'], false), 'notes');
+  assert.equal(firstVisible(['board', 'features', 'notes'], false), 'settings');
   assert.deepEqual(lockReason('features', [], false), { kind: 'needed', by: 'board' });
   assert.deepEqual(lockReason('board', ['features'], true), { kind: 'last' });
   assert.deepEqual(lockReason('features', ['board'], false), { kind: 'last' });

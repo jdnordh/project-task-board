@@ -95,3 +95,35 @@ export interface AppState {
   settings: Settings
   templates: Template[]
 }
+
+export interface ActionCount {
+  open: number
+  total: number
+}
+
+/** A row of GET /api/notes: no body or transcript. */
+export interface NoteRow {
+  id: string
+  title: string
+  meeting_date: string
+  feature_id: string | null
+  created_at: string
+  updated_at: string
+  actions: ActionCount
+  has_transcript: boolean
+  excerpt: string
+}
+
+export interface Note {
+  id: string
+  title: string
+  meeting_date: string
+  feature_id: string | null
+  feature_name: string | null
+  body_html: string
+  body_text: string
+  transcript: string
+  created_at: string
+  updated_at: string
+  actions: ActionCount
+}

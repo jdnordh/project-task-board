@@ -9,7 +9,7 @@ import { api } from './api'
 import { copyText } from './clipboard'
 import type { AppState, ColumnId, Draft, Feature, Settings, Task, Template, TemplateFields } from './types'
 import {
-  claudePrompt, claudeSetup, setupLabel, cleanDefaultEst, parseHidden, effectiveHidden, isVisible, firstVisible,
+  claudePrompt, claudeSetup, setupLabel, cleanDefaultEst, parseHidden, effectiveHidden, isVisible, firstVisible, PAGES,
 } from './lib'
 import { Sidebar } from './components/Sidebar'
 import { TopBar } from './components/TopBar'
@@ -20,6 +20,7 @@ import { TemplatesModal, type TemplatesModalSpec } from './components/TemplatesM
 import { BoardPage } from './pages/BoardPage'
 import { FeaturesPage } from './pages/FeaturesPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { NotesPage, type PromoteSpec } from './pages/NotesPage'
 import { AchievementsPage } from './pages/AchievementsPage'
 import { ExtrasContext, type ExtrasState } from './extras/skins'
 import { drawTextures } from './extras/textures'
@@ -98,7 +99,7 @@ export default function App() {
   useEffect(() => {
     const onHash = () => {
       const r = readHash()
-      if (!r[0] || hiddenRef.current.includes(r[0]) || !['board', 'features', 'achievements', 'settings'].includes(r[0])) {
+      if (!r[0] || hiddenRef.current.includes(r[0]) || !PAGES.some((p) => p.id === r[0])) {
         // hiddenRef already holds the effective list, Extras folded in.
         const first = firstVisible(hiddenRef.current, true)
         history.replaceState(null, '', '#/' + first)
@@ -300,6 +301,12 @@ export default function App() {
     }
   }, [tasks, copyClaudePrompt, load])
 
+  /** A task made from a meeting-note action item: always Backlog. */
+  const promoteTask = useCallback(async (spec: PromoteSpec) => {
+    const created = await api<Task>('POST', '/api/tasks', { ...spec, status: 'backlog' })
+    setTasks((ts) => [...ts, { ...created, files: [] }])
+  }, [])
+
   const saveTask = useCallback(async (draft: Draft, original: Task | Draft) => {
     if (!draft.title.trim()) return
     const base = {
@@ -445,6 +452,9 @@ export default function App() {
               features={features} tasks={tasks} extras={extras} addSignal={addFeatureSignal}
               onCreate={createFeature} onUpdate={updateFeature} onDelete={deleteFeature} onConfirm={setConfirm}
             />
+          )}
+          {page === 'notes' && (
+            <NotesPage features={features} noteId={route[1]} onPromote={promoteTask} onConfirm={setConfirm} />
           )}
           {page === 'settings' && <SettingsPage settings={settings} onSave={saveSettings} />}
           {page === 'achievements' && <AchievementsPage data={ach} target={route[1]} />}

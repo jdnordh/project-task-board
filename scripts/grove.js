@@ -86,7 +86,8 @@ async function saveTaskImages(id, dir) {
     saved.push(file);
   }
   console.log(saved.length ? saved.join('\n') : 'No pictures in this task.');
-  process.exit(0);
+  // Let Node exit on its own: process.exit() while fetch sockets close trips a libuv assert on Windows.
+  process.exitCode = 0;
 }
 
 async function main() {
