@@ -18,6 +18,17 @@ export function parseLocalDate(s) {
   return new Date(y, m - 1, d);
 }
 
+/** True for a `YYYY-MM-DD` string naming a real calendar day. */
+export function isRealDate(s) {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  return localDate(parseLocalDate(s)) === s;
+}
+
+/** `YYYY-MM-DD` moved by `n` days. */
+export function shiftDate(s, n) {
+  return localDate(addDays(parseLocalDate(s), n));
+}
+
 export function addDays(d, n) {
   const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   r.setDate(r.getDate() + n);
