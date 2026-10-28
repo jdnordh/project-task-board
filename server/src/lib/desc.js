@@ -28,6 +28,7 @@ export function stripHtml(html) {
     if (!label || label === href) return href;
     return `${label} (${href})`;
   });
+  s = s.replace(/<img\b[^>]*>/gi, '[image]');
   s = s.replace(/<br\s*\/?>/gi, '\n');
   s = s.replace(/<li\b[^>]*>/gi, '\n- ');
   s = s.replace(/<\/(p|div|h[1-6]|li|pre|blockquote|ul|ol)>/gi, '\n');

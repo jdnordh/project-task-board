@@ -72,6 +72,13 @@ CREATE TABLE IF NOT EXISTS task_templates (
   last_used_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS images (
+  id         TEXT PRIMARY KEY,
+  mime       TEXT NOT NULL,
+  bytes      BLOB NOT NULL,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
 CREATE TABLE IF NOT EXISTS activity_log (

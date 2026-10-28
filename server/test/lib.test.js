@@ -140,7 +140,7 @@ test('agentRules has both forms and no Cadence', () => {
   assert.match(cli, /node x\.js task-status t1 complete "<one-line summary>"/);
   assert.match(cli, /name it "A: B"/);
   assert.ok(!/cadence/i.test(mcp + cli));
-  assert.equal(agentRules().length, 12);
+  assert.equal(agentRules().length, 14);
 });
 
 test('claudeSetup resolves model and effort separately', () => {

@@ -93,12 +93,16 @@ export function agentRules({ cli, id, title } = {}) {
         report: `${cli} task-report ${id} @report.md (or - for stdin)`,
         file: `${cli} task-file ${id} <file.html> --title="<name>"`,
         subtask: `${cli} task-subtask ${id} <n> (n counts from 1; add "undone" to untick)`,
+        images: `${cli} task-images ${id} [folder]`,
+        image: `${cli} task-image ${id} <file> --caption="<caption>"`,
       }
     : {
         status: (s, n) => `set_task_status ${s} "${n}"`,
         report: 'set_task_report',
         file: 'link_task_file',
         subtask: 'check_subtask <n> (the number get_task shows; done: false to untick)',
+        images: 'get_task_images',
+        image: 'upload_report_image',
       };
   const name = title ? `"${title}"` : 'the "Session title" the task shows';
   return [
@@ -113,6 +117,8 @@ export function agentRules({ cli, id, title } = {}) {
     '8. Keep each note under 280 characters.',
     `9. For anything longer, write a markdown report (headings, bullets, **bold**, [links](https://…)): ${t.report}. Each report replaces the last, so send all of it each time.`,
     `10. If you make an HTML page for the user (a mock-up, a chart, a write-up), save it as one self-contained .html file and link it: ${t.file}. That returns a markdown link: put it in your report. Save the file outside any git repo (your scratchpad folder is good). Grove keeps a copy in its database when you link it, so the file may be deleted after. If you change the file, link it again to update the copy.`,
+    `11. "[image]" in the description means the user put a picture there. Save the pictures with ${t.images} and open them before you start.`,
+    `12. To show a picture in your report, upload it with ${t.image} and put the line it returns in the report. The report shows only uploaded pictures.`,
     'The Grove server must be running. If it cannot be reached, tell the user and carry on with the task.',
   ];
 }

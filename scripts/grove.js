@@ -18,7 +18,9 @@ const USAGE = `Usage:
   node scripts/grove.js task-status <id> <running|question|review|complete> [note...]
   node scripts/grove.js task-subtask <id> <n> [done|undone]
   node scripts/grove.js task-report <id> <@file.md | - | text...>
-  node scripts/grove.js task-file <id> <path.html> [--title=..]`;
+  node scripts/grove.js task-file <id> <path.html> [--title=..]
+  node scripts/grove.js task-images <id> [folder]
+  node scripts/grove.js task-image <id> <file.png> [--caption=..]`;
 
 function readEnv() {
   const out = {};
@@ -46,6 +48,45 @@ function readStdin() {
     process.stdin.on('data', (d) => { s += d; });
     process.stdin.on('end', () => resolve(s));
   });
+}
+
+async function request(method, url, body) {
+  const env = readEnv();
+  const port = Number(env.PORT) || 3004;
+  const headers = { 'Content-Type': 'application/json' };
+  if (env.GROVE_TOKEN) headers.Authorization = `Bearer ${env.GROVE_TOKEN}`;
+  try {
+    return await fetch(`http://localhost:${port}${url}`, {
+      method, headers, body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    console.error(`Grove is not running at localhost:${port}. Ask the user to start it (npm run dev in ${REPO.replace(/\\/g, '/')}).`);
+    process.exit(3);
+  }
+}
+
+const IMAGE_EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' };
+
+/** Save the pictures in a task's description and print their paths, in order. */
+async function saveTaskImages(id, dir) {
+  const res = await request('GET', `/api/tasks/${encodeURIComponent(id)}/images`);
+  const list = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    console.error(list.error || `HTTP ${res.status}`);
+    process.exit(1);
+  }
+  const out = path.resolve(dir || path.join(require('node:os').tmpdir(), 'grove-images', id));
+  fs.mkdirSync(out, { recursive: true });
+  const saved = [];
+  for (const [i, img] of list.entries()) {
+    const r = await request('GET', img.url);
+    if (!r.ok) continue;
+    const file = path.join(out, `${i + 1}-${img.id}.${IMAGE_EXT[img.mime] ?? 'img'}`);
+    fs.writeFileSync(file, Buffer.from(await r.arrayBuffer()));
+    saved.push(file);
+  }
+  console.log(saved.length ? saved.join('\n') : 'No pictures in this task.');
+  process.exit(0);
 }
 
 async function main() {
@@ -103,23 +144,22 @@ async function main() {
       body = { path: path.resolve(file), title: titleArg ? titleArg.slice('--title='.length) : undefined };
       break;
     }
+    case 'task-image': {
+      const captionArg = rest.find((a) => a.startsWith('--caption='));
+      const file = rest.find((a) => !a.startsWith('--caption='));
+      if (!file) usage('task-image needs a path');
+      method = 'POST';
+      url = `/api/tasks/${enc}/report-image`;
+      body = { path: path.resolve(file), caption: captionArg ? captionArg.slice('--caption='.length) : undefined };
+      break;
+    }
+    case 'task-images':
+      return saveTaskImages(id, rest[0]);
     default:
       usage(`unknown command: ${cmd}`);
   }
 
-  const env = readEnv();
-  const port = Number(env.PORT) || 3004;
-  const headers = { 'Content-Type': 'application/json' };
-  if (env.GROVE_TOKEN) headers.Authorization = `Bearer ${env.GROVE_TOKEN}`;
-  let res;
-  try {
-    res = await fetch(`http://localhost:${port}${url}`, {
-      method, headers, body: body === undefined ? undefined : JSON.stringify(body),
-    });
-  } catch {
-    console.error(`Grove is not running at localhost:${port}. Ask the user to start it (npm run dev in ${REPO.replace(/\\/g, '/')}).`);
-    process.exit(3);
-  }
+  const res = await request(method, url, body);
   const text = await res.text();
   try {
     console.log(JSON.stringify(JSON.parse(text), null, 2));

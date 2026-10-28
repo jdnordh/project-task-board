@@ -8,6 +8,7 @@
 import express from 'express';
 import { HttpError } from './store.js';
 import { scanRepos } from './repos.js';
+import { IMAGE_MAX_BYTES } from './lib/images.js';
 
 const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
@@ -77,6 +78,23 @@ export function createApp(store, { token = '', achievements = null } = {}) {
     }
   });
 
+  app.post('/api/images', originOnly, express.raw({ type: () => true, limit: IMAGE_MAX_BYTES + 1024 }),
+    h((req) => store.saveImage(Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0)), 201));
+  app.get('/api/images/:id', (req, res) => {
+    try {
+      const img = store.imageContent(req.params.id);
+      res.set({
+        'Content-Type': img.mime,
+        'X-Content-Type-Options': 'nosniff',
+        'Cache-Control': 'private, max-age=31536000, immutable',
+      }).send(img.bytes);
+    } catch (err) {
+      res.status(err.status ?? 500).json({ error: err.message });
+    }
+  });
+  app.get('/api/tasks/:id/images', h((req) => store.taskImages(req.params.id)));
+  app.post('/api/tasks/:id/report-image', gated, h((req) => store.uploadReportImage(req.params.id, req.body), 201));
+
   app.get('/api/task-templates', h(() => store.listTemplates()));
   app.post('/api/task-templates', h((req) => store.createTemplate(req.body), 201));
   app.patch('/api/task-templates/:id', h((req) => store.updateTemplate(req.params.id, req.body)));
@@ -95,5 +113,7 @@ export function createApp(store, { token = '', achievements = null } = {}) {
   }
 
   app.use('/api', (_req, res) => res.status(404).json({ error: 'not found' }));
+  // Body-parser errors (too large, bad JSON) as JSON with their status.
+  app.use((err, _req, res, _next) => res.status(err.status ?? 500).json({ error: err.message }));
   return app;
 }

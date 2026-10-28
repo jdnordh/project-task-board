@@ -15,6 +15,7 @@ import {
 } from './lib/agent.js';
 import { validateTemplate } from './lib/templates.js';
 import { cleanSkin } from './lib/skins.js';
+import { sniffImage, imageIds, IMAGE_MAX_BYTES, IMAGE_EXT } from './lib/images.js';
 
 export class HttpError extends Error {
   constructor(status, message) {
@@ -53,6 +54,10 @@ function parseTask(row) {
 function parseFeature(row) {
   if (!row) return row;
   return { ...row, completed: !!row.completed };
+}
+
+function imageUrl(id) {
+  return `/api/images/${id}`;
 }
 
 function fileUrl(id) {
@@ -243,6 +248,47 @@ export function createStore(db, { cliPath = '' } = {}) {
     } catch {
       throw new HttpError(404, `no stored copy, and the file is gone: ${row.path}`);
     }
+  }
+
+  // ---- images ------------------------------------------------------------
+  function saveImage(buf) {
+    if (!buf?.length) throw new HttpError(400, 'image body is empty');
+    if (buf.length > IMAGE_MAX_BYTES) throw new HttpError(413, 'image is over 5 MB');
+    const mime = sniffImage(buf);
+    if (!mime) throw new HttpError(400, 'not a PNG, JPEG, GIF or WebP image');
+    const id = genId('img');
+    q('INSERT INTO images (id, mime, bytes, created_at) VALUES (?, ?, ?, ?)').run(id, mime, buf, now());
+    return { id, url: imageUrl(id), mime };
+  }
+  function imageContent(id) {
+    const row = q('SELECT mime, bytes FROM images WHERE id = ?').get(id);
+    if (!row) throw new HttpError(404, 'image not found');
+    return { mime: row.mime, bytes: Buffer.from(row.bytes) };
+  }
+  /** Pictures in the task's description, in order; unknown ids are skipped. */
+  function taskImages(taskId) {
+    const t = requireTask(taskId);
+    const get = q('SELECT id, mime FROM images WHERE id = ?');
+    return imageIds(t.desc_html).map((id) => get.get(id)).filter(Boolean).map((r) => ({ id: r.id, mime: r.mime, url: imageUrl(r.id) }));
+  }
+  /** Store a local picture a session made for its report. */
+  function uploadReportImage(taskId, body) {
+    requireTask(taskId);
+    const p = body?.path;
+    if (typeof p !== 'string' || !ABS_PATH.test(p) || !IMAGE_EXT.test(p)) {
+      throw new HttpError(400, 'path must be an absolute path to a .png, .jpg, .gif or .webp file');
+    }
+    let stat;
+    try {
+      stat = fs.statSync(p);
+    } catch {
+      throw new HttpError(404, `file not found: ${p}`);
+    }
+    if (stat.size > IMAGE_MAX_BYTES) throw new HttpError(413, 'image is over 5 MB');
+    const img = saveImage(fs.readFileSync(p));
+    const caption = (typeof body.caption === 'string' && body.caption.trim() ? body.caption.trim() : path.basename(p))
+      .replace(/[[\]\n]/g, ' ').slice(0, 200);
+    return { ...img, markdown: `![${caption}](${img.url})` };
   }
 
   // ---- tasks -------------------------------------------------------------
@@ -462,6 +508,7 @@ export function createStore(db, { cliPath = '' } = {}) {
     listFeatures, getFeature, createFeature, updateFeature, deleteFeature,
     listTasks, getTaskRow, createTask, updateTask, deleteTask,
     filesFor, linkFile, deleteFile, fileContent,
+    saveImage, imageContent, taskImages, uploadReportImage,
     setAgentStatus, setSubtask, setReport, agentView, agentStatus,
     listTemplates, createTemplate, updateTemplate, templateUsed, deleteTemplate,
     getState,
