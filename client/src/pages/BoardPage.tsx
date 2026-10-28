@@ -96,7 +96,8 @@ export function BoardPage({ tasks, features, settings, search, onMove, onOpen, o
   const gridTemplate = columns.map((c) => (c.id === 'backlog' && backlogCollapsed ? '40px' : 'minmax(0, 1fr)')).join(' ')
 
   return (
-    <div>
+    // Fills the page height so every column is a drop target down to the bottom.
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       <PageHeader
         title="Board"
         subtitle={`${visible.length} of ${onBoard.length} tasks${filtered ? ' · filtered' : ''} · drag cards between columns`}
@@ -111,7 +112,7 @@ export function BoardPage({ tasks, features, settings, search, onMove, onOpen, o
       />
       <FeatureFilter features={features} counts={featureCounts} value={filter} onChange={setFilter} />
 
-      <div ref={gridRef} style={{ display: 'grid', gridTemplateColumns: gridTemplate, gap: compact ? 8 : 14, alignItems: 'start' }}>
+      <div ref={gridRef} style={{ display: 'grid', gridTemplateColumns: gridTemplate, gap: compact ? 8 : 14, alignItems: 'stretch', flex: 1 }}>
         {columns.map((col) => {
           const id = col.id as ColumnId
           const list = byCol(id)
@@ -140,7 +141,7 @@ export function BoardPage({ tasks, features, settings, search, onMove, onOpen, o
           const hours = list.reduce((s, t) => s + (t.est || 0), 0)
           return (
             <section key={id} {...dragProps(id)} aria-label={label}
-              style={{ minWidth: 0, borderRadius: 'var(--radius-md)', transition: 'background var(--dur-fast)', ...dropStyle }}>
+              style={{ minWidth: 0, display: 'flex', flexDirection: 'column', borderRadius: 'var(--radius-md)', transition: 'background var(--dur-fast)', ...dropStyle }}>
               <header style={{
                 position: 'sticky', top: 60, zIndex: 5, display: 'flex', alignItems: 'center', gap: 7, padding: '10px 4px',
                 background: 'color-mix(in srgb, var(--bg-0) 88%, transparent)', backdropFilter: 'blur(8px)', minWidth: 0,
@@ -161,7 +162,7 @@ export function BoardPage({ tasks, features, settings, search, onMove, onOpen, o
                   </button>
                 )}
               </header>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: compact ? 8 : 10, padding: '4px 0' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: compact ? 8 : 10, padding: '4px 0' }}>
                 {list.length === 0 && (
                   <div style={{
                     border: '1.5px dashed var(--border)', borderRadius: 'var(--radius-sm)', padding: '22px 8px', textAlign: 'center',

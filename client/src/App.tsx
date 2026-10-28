@@ -432,7 +432,7 @@ export default function App() {
           showNewTask={boardVisible}
           onPrimary={() => (page === 'features' ? setAddFeatureSignal((n) => n + 1) : openNew('week'))}
         />
-        <main key={route.join('/')} style={{ flex: 1, padding: '22px 28px 40px', minWidth: 0 }}>
+        <main key={route.join('/')} style={{ flex: 1, padding: '22px 28px 40px', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           {page === 'board' && (
             <BoardPage
               tasks={tasks} features={features} settings={settings} search={search}
