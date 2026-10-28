@@ -17,6 +17,7 @@ import { FeaturePicker } from '../components/FeaturePicker'
 import { NotesEditor } from '../components/NotesEditor'
 
 export const AUTOSAVE_MS = 1500
+const KEEPALIVE_MAX = 60000
 
 /** Same hash scheme as App's navigate (not imported, to avoid a cycle). */
 function navigate(...parts: string[]) {
@@ -37,7 +38,7 @@ interface Props {
 }
 
 export function NotesPage({ noteId, ...rest }: Props) {
-  return noteId ? <NoteDetail id={noteId} {...rest} /> : <NoteList features={rest.features} />
+  return noteId ? <NoteDetail key={noteId} id={noteId} {...rest} /> : <NoteList features={rest.features} />
 }
 
 // ---- list -------------------------------------------------------------------
@@ -183,9 +184,16 @@ function NoteDetail({ id, features, onPromote, onConfirm }: { id: string } & Omi
   }
 
   useEffect(() => {
-    const onLeave = () => flush(true)
+    // Closing the tab: a keepalive request can carry only ~64 KB, so a bigger
+    // unsaved edit (a pasted transcript) asks the browser's "leave page?" prompt instead.
+    const onLeave = (e: BeforeUnloadEvent) => {
+      if (!Object.keys(pending.current).length) return
+      if (JSON.stringify(pending.current).length < KEEPALIVE_MAX) flush(true)
+      else { e.preventDefault(); e.returnValue = '' }
+    }
     window.addEventListener('beforeunload', onLeave)
-    return () => { window.removeEventListener('beforeunload', onLeave); flush(true) }
+    // Leaving the page inside the app: a normal request, which outlives the unmount.
+    return () => { window.removeEventListener('beforeunload', onLeave); flush() }
   }, [flush])
 
   if (missing) {

@@ -31,7 +31,7 @@ import { MUTATION_EVENT } from './api'
 const MERGE_KEYS = ['agent_state', 'agent_note', 'agent_at', 'agent_report', 'files', 'subtasks'] as const
 const NARROW = '(max-width: 1100px)'
 
-type AgentStatusReply = { cli: string; tasks: Pick<Task, 'id' | (typeof MERGE_KEYS)[number]>[] }
+type AgentStatusReply = { cli: string; tasks: Pick<Task, 'id' | 'status' | (typeof MERGE_KEYS)[number]>[] }
 
 function readHash(): string[] {
   return location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent)
@@ -44,6 +44,8 @@ export function navigate(page: string, ...sub: string[]) {
 export default function App() {
   const [features, setFeatures] = useState<Feature[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
+  const tasksRef = useRef(tasks)
+  tasksRef.current = tasks
   const [settings, setSettings] = useState<Settings>({})
   const [templates, setTemplates] = useState<Template[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -156,6 +158,12 @@ export default function App() {
       const r = await api<AgentStatusReply>('GET', '/api/agent-status')
       cliRef.current = r.cli
       const byId = new Map(r.tasks.map((t) => [t.id, t]))
+      // A card Buddy made or moved (unknown here, or in another column): reload everything.
+      const known = new Map(tasksRef.current.map((t) => [t.id, t.status]))
+      if (r.tasks.some((a) => known.get(a.id) !== a.status)) {
+        await load()
+        return
+      }
       setTasks((ts) => {
         let changed = false
         const next = ts.map((t) => {
@@ -173,7 +181,7 @@ export default function App() {
     } catch {
       // server unreachable: the next poll tries again
     }
-  }, [])
+  }, [load])
 
   const anyInClaude = tasks.some((t) => t.status === 'claude')
   useEffect(() => { if (loaded) pollAgents() }, [loaded, pollAgents])
@@ -182,10 +190,12 @@ export default function App() {
     const id = setInterval(pollAgents, 10000)
     return () => clearInterval(id)
   }, [anyInClaude, pollAgents])
+  // Coming back to the window (e.g. from a Buddy chat): reload, so cards made or moved elsewhere show.
   useEffect(() => {
-    window.addEventListener('focus', pollAgents)
-    return () => window.removeEventListener('focus', pollAgents)
-  }, [pollAgents])
+    const onFocus = () => { load().catch(() => {}) }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [load])
 
   // ---- Extras: achievement checks, textures, unlock toasts ------------------------
   const runCheck = useCallback(async (action: boolean) => {
@@ -326,6 +336,8 @@ export default function App() {
     }
     const orig = original as Task
     const patch: Record<string, unknown> = { ...base }
+    // Send status only when the user moved it here: Buddy may have moved the card while the drawer was open.
+    if (draft.status === orig.status) delete patch.status
     // Only send what the user changed: a Claude session may have written
     // agent fields or ticked subtasks while the drawer was open.
     if ((draft.agent_state ?? null) !== (orig.agent_state ?? null)) patch.agent_state = draft.agent_state ?? null
