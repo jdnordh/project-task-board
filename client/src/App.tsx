@@ -1,251 +1,375 @@
 /**
- * App — root component.
- *
- * Sets up React Router with two routes:
- *   /          → Board page (TASK-004)
- *   /projects  → Projects page (TASK-003)
- *
- * Also renders the shared navigation rail and the aurora background layer.
- *
- * Drawer state is lifted here (AppShell) so both the TopBar "+ New task" button
- * and BoardPage task-card clicks can open the same TaskDrawer. The board
- * re-fetches via a refreshKey bump passed as a prop.
+ * App — the root. Holds all app state, loads it once from GET /api/state,
+ * and owns every mutation: each handler updates local state optimistically,
+ * then calls the API. Pages get data and handlers as props.
  */
 
-import { useState, useCallback, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom'
-import { ProjectsPage } from './pages/ProjectsPage'
-import { BoardPage } from './pages/BoardPage'
-import { ProjectDetailPage } from './pages/ProjectDetailPage'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { api } from './api'
+import { copyText } from './clipboard'
+import type { AppState, ColumnId, Draft, Feature, Settings, Task, Template, TemplateFields } from './types'
+import {
+  claudePrompt, claudeSetup, setupLabel, cleanDefaultEst, parseHidden, effectiveHidden, isVisible, firstVisible,
+} from './lib'
+import { Sidebar } from './components/Sidebar'
+import { TopBar } from './components/TopBar'
+import { ConfirmDialog, type ConfirmSpec } from './components/ui'
+import { PromptNotice, type NoticeSpec } from './components/PromptNotice'
 import { TaskDrawer } from './components/TaskDrawer'
-import type { Project, TaskStatus } from './components/TaskDrawer'
-import './styles/design-system.css'
+import { TemplatesModal, type TemplatesModalSpec } from './components/TemplatesModal'
+import { BoardPage } from './pages/BoardPage'
+import { FeaturesPage } from './pages/FeaturesPage'
+import { SettingsPage } from './pages/SettingsPage'
 
-/**
- * NavRail — left navigation sidebar matching the Grove prototype.
- */
-function NavRail() {
-  return (
-    <nav style={{
-      width: 160, flexShrink: 0,
-      display: 'flex', flexDirection: 'column', gap: 6,
-      padding: '20px 14px',
-      background: 'rgba(11,18,14,0.72)',
-      backdropFilter: 'var(--blur-md)',
-      WebkitBackdropFilter: 'var(--blur-md)',
-      borderRight: '1px solid var(--border-default)',
-      zIndex: 3,
-    }}>
-      {/* Logo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '6px 8px 22px' }}>
-        <div style={{
-          width: 32, height: 32, borderRadius: 10,
-          background: 'var(--grad-canopy)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: 'var(--glow-accent)',
-        }}>
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#06150c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
-            <path d="M2 21c0-3 1.85-5.36 5.08-6" />
-          </svg>
-        </div>
-        <span style={{
-          fontFamily: 'var(--font-display)', fontStretch: '125%',
-          fontWeight: 800, fontSize: 17, color: 'var(--text-strong)', letterSpacing: '-0.02em',
-        }}>
-          Grove
-        </span>
-      </div>
+const MERGE_KEYS = ['agent_state', 'agent_note', 'agent_at', 'agent_report', 'files', 'subtasks'] as const
+const NARROW = '(max-width: 1100px)'
 
-      {/* Board nav link */}
-      <NavLink to="/" end style={{ textDecoration: 'none' }}>
-        {({ isActive }) => (
-          <button style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '11px 12px', borderRadius: 12, width: '100%',
-            border: `1px solid ${isActive ? 'var(--accent-soft-2)' : 'transparent'}`,
-            background: isActive ? 'var(--accent-soft)' : 'transparent',
-            color: isActive ? 'var(--canopy-300)' : 'var(--text-muted)',
-            fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 14,
-            cursor: 'pointer', textAlign: 'left',
-            transition: 'all var(--dur-fast) var(--ease-grow)',
-          }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="7" height="18" rx="1.6" />
-              <rect x="14" y="3" width="7" height="11" rx="1.6" />
-            </svg>
-            Board
-          </button>
-        )}
-      </NavLink>
+type AgentStatusReply = { cli: string; tasks: Pick<Task, 'id' | (typeof MERGE_KEYS)[number]>[] }
 
-      {/* Projects nav link */}
-      <NavLink to="/projects" style={{ textDecoration: 'none' }}>
-        {({ isActive }) => (
-          <button style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '11px 12px', borderRadius: 12, width: '100%',
-            border: `1px solid ${isActive ? 'var(--accent-soft-2)' : 'transparent'}`,
-            background: isActive ? 'var(--accent-soft)' : 'transparent',
-            color: isActive ? 'var(--canopy-300)' : 'var(--text-muted)',
-            fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 14,
-            cursor: 'pointer', textAlign: 'left',
-            transition: 'all var(--dur-fast) var(--ease-grow)',
-          }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 10c-2 0-3-1.5-3-4s1.5-4 3-4 3 1.5 3 4M14 14c2 0 3-1.5 3-3.5" />
-              <path d="M12 22V8" />
-              <path d="M9 13c-2.5 0-4-1.5-4-4M15 16c2 0 4-1 4-3.5" />
-            </svg>
-            Projects
-          </button>
-        )}
-      </NavLink>
-    </nav>
-  )
+function readHash(): string[] {
+  return location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent)
 }
 
-interface TopBarProps {
-  /** Called when "+ New task" is clicked — opens create drawer. */
-  onNewTask: () => void
+export function navigate(page: string, ...sub: string[]) {
+  location.hash = '#/' + [page, ...sub].map(encodeURIComponent).join('/')
 }
 
-/**
- * TopBar — top header bar with route-aware title and primary action button.
- */
-function TopBar({ onNewTask }: TopBarProps) {
-  const location = useLocation()
-  const isBoard = location.pathname === '/'
-  const title = isBoard ? 'Board' : 'Projects'
+export default function App() {
+  const [features, setFeatures] = useState<Feature[]>([])
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [settings, setSettings] = useState<Settings>({})
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const [route, setRoute] = useState<string[]>([])
+  const [search, setSearch] = useState('')
+  const [drawer, setDrawer] = useState<{ key: number; task: Task | Draft } | null>(null)
+  const [tplModal, setTplModal] = useState<TemplatesModalSpec | null>(null)
+  const [notice, setNotice] = useState<NoticeSpec | null>(null)
+  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null)
+  const [addFeatureSignal, setAddFeatureSignal] = useState(0)
+  const [collapsed, setCollapsed] = useState(() => window.matchMedia(NARROW).matches)
+  const cliRef = useRef('')
 
-  return (
-    <header style={{
-      flexShrink: 0, height: 68,
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '0 28px',
-      borderBottom: '1px solid var(--border-default)',
-      background: 'rgba(8,13,10,0.55)',
-      backdropFilter: 'var(--blur-sm)',
-      WebkitBackdropFilter: 'var(--blur-sm)',
-      zIndex: 2,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-        <h1 style={{
-          fontFamily: 'var(--font-display)', fontStretch: '125%',
-          fontSize: 24, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: '-0.02em',
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        }}>
-          {title}
-        </h1>
-      </div>
-      <button
-        onClick={onNewTask}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8,
-          padding: '11px 18px', borderRadius: 14,
-          border: '1px solid transparent',
-          background: 'var(--grad-canopy)',
-          color: 'var(--text-on-accent)',
-          fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 14, cursor: 'pointer',
-          boxShadow: 'var(--glow-accent)',
-        }}
-      >
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
-        New task
-      </button>
-    </header>
-  )
-}
+  const extras = settings.extras === 'true'
+  const hidden = useMemo(() => parseHidden(settings.hidden_pages), [settings.hidden_pages])
+  const effHidden = useMemo(() => effectiveHidden(hidden, extras), [hidden, extras])
+  const hiddenRef = useRef(effHidden)
+  hiddenRef.current = effHidden
 
-/**
- * AppShell — the page layout: nav rail + content column + task drawer.
- *
- * Drawer state is owned here so the TopBar "New task" button and BoardPage
- * card clicks can both open the drawer. A refreshKey counter is passed to
- * BoardPage so it re-fetches after a save or delete.
- */
-function AppShell() {
-  /** null = drawer closed; undefined = create mode; number = edit mode task id */
-  const [drawerTaskId, setDrawerTaskId] = useState<number | undefined | null>(null)
-  const [drawerDefaultStatus, setDrawerDefaultStatus] = useState<TaskStatus | undefined>(undefined)
-  const [boardRefreshKey, setBoardRefreshKey] = useState(0)
-  /** Projects fetched once here so TopBar and drawer always have a fresh list. */
-  const [appProjects, setAppProjects] = useState<Project[]>([])
+  // ---- load --------------------------------------------------------------------
+  const load = useCallback(async () => {
+    const s = await api<AppState>('GET', '/api/state')
+    setFeatures(s.features)
+    setTasks(s.tasks)
+    setSettings(s.settings)
+    setTemplates(s.templates)
+    return s
+  }, [])
 
   useEffect(() => {
-    fetch('/api/projects')
-      .then((r) => r.json())
-      .then(setAppProjects)
-      .catch(() => {})
-  }, [boardRefreshKey])
+    load().then((s) => {
+      const h = parseHidden(s.settings.hidden_pages)
+      const ex = s.settings.extras === 'true'
+      const fromHash = readHash()
+      let page: string[]
+      if (fromHash[0] && isVisible(fromHash[0], h, ex)) page = fromHash
+      else if (s.settings.route && isVisible(s.settings.route, h, ex)) page = [s.settings.route]
+      else page = [firstVisible(h, ex)]
+      if (readHash().join('/') !== page.join('/')) history.replaceState(null, '', '#/' + page.join('/'))
+      setRoute(page)
+      setLoaded(true)
+    })
+  }, [load])
 
-  const openCreateDrawer = useCallback((_projects?: Project[], defaultStatus?: TaskStatus) => {
-    setDrawerDefaultStatus(defaultStatus)
-    setDrawerTaskId(undefined)
+  // ---- routing: hashchange is the only caller of setRoute after boot --------
+  useEffect(() => {
+    const onHash = () => {
+      const r = readHash()
+      if (!r[0] || hiddenRef.current.includes(r[0]) || !['board', 'features', 'achievements', 'settings'].includes(r[0])) {
+        // hiddenRef already holds the effective list, Extras folded in.
+        const first = firstVisible(hiddenRef.current, true)
+        history.replaceState(null, '', '#/' + first)
+        setRoute([first])
+        return
+      }
+      setRoute(r)
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
-  const openEditDrawer = useCallback((taskId: number) => {
-    setDrawerTaskId(taskId)
+  // A page that becomes hidden while shown redirects to the first visible one.
+  useEffect(() => {
+    if (!loaded || !route[0]) return
+    if (effHidden.includes(route[0])) {
+      const first = firstVisible(hidden, extras)
+      history.replaceState(null, '', '#/' + first)
+      setRoute([first])
+    }
+  }, [effHidden, hidden, extras, loaded, route])
+
+  // ---- settings ---------------------------------------------------------------
+  const saveSettings = useCallback((patch: Record<string, string>) => {
+    setSettings((s) => ({ ...s, ...patch }))
+    api<Settings>('PATCH', '/api/settings', patch).catch(() => load())
+  }, [load])
+
+  useEffect(() => {
+    if (loaded && route[0] && settings.route !== route[0]) saveSettings({ route: route[0] })
+  }, [route, loaded, settings.route, saveSettings])
+
+  // ---- sidebar auto-collapse when crossing the narrow breakpoint ----------------
+  useEffect(() => {
+    const mq = window.matchMedia(NARROW)
+    const on = (e: MediaQueryListEvent) => setCollapsed(e.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
   }, [])
 
-  const closeDrawer = useCallback(() => {
-    setDrawerTaskId(null)
+  // ---- Claude column: prompt copy and polling ---------------------------------
+  const featureOf = useCallback((id: string) => features.find((f) => f.id === id), [features])
+
+  const copyClaudePrompt = useCallback((task: Task) => {
+    const feature = featureOf(task.feature)
+    const text = claudePrompt(task, cliRef.current, feature?.name)
+    const setup = setupLabel(claudeSetup(task, feature))
+    // copyText starts synchronously: nothing may be awaited before this call.
+    copyText(text).then((copied) => setNotice({ key: Date.now(), title: task.title, text, setup, copied }))
+  }, [featureOf])
+
+  const pollAgents = useCallback(async () => {
+    try {
+      const r = await api<AgentStatusReply>('GET', '/api/agent-status')
+      cliRef.current = r.cli
+      const byId = new Map(r.tasks.map((t) => [t.id, t]))
+      setTasks((ts) => {
+        let changed = false
+        const next = ts.map((t) => {
+          const a = byId.get(t.id)
+          if (!a) return t
+          const same = MERGE_KEYS.every((k) => JSON.stringify(t[k]) === JSON.stringify(a[k]))
+          if (same) return t
+          changed = true
+          const patch: Partial<Task> = {}
+          for (const k of MERGE_KEYS) (patch as Record<string, unknown>)[k] = a[k]
+          return { ...t, ...patch }
+        })
+        return changed ? next : ts
+      })
+    } catch {
+      // server unreachable: the next poll tries again
+    }
   }, [])
 
-  const handleSaved = useCallback(() => {
-    setBoardRefreshKey((k) => k + 1)
+  const anyInClaude = tasks.some((t) => t.status === 'claude')
+  useEffect(() => { if (loaded) pollAgents() }, [loaded, pollAgents])
+  useEffect(() => {
+    if (!anyInClaude) return
+    const id = setInterval(pollAgents, 10000)
+    return () => clearInterval(id)
+  }, [anyInClaude, pollAgents])
+  useEffect(() => {
+    window.addEventListener('focus', pollAgents)
+    return () => window.removeEventListener('focus', pollAgents)
+  }, [pollAgents])
+
+  // ---- tasks --------------------------------------------------------------------
+  const activeFeatures = useMemo(() => features.filter((f) => !f.completed), [features])
+
+  const defaultFeature = useCallback(() => {
+    const last = settings.lastTaskFeature
+    if (last && activeFeatures.some((f) => f.id === last)) return last
+    return activeFeatures[0]?.id ?? features[0]?.id ?? ''
+  }, [settings.lastTaskFeature, activeFeatures, features])
+
+  const openNew = useCallback((status: ColumnId) => {
+    const draft: Draft = {
+      _new: true, title: '', feature: defaultFeature(), priority: 2, est: cleanDefaultEst(settings.default_est),
+      due: null, status, desc: '', desc_html: '', subtasks: [], claude_model: null, claude_effort: null,
+    }
+    setDrawer({ key: Date.now(), task: draft })
+  }, [defaultFeature, settings.default_est])
+
+  const openTask = useCallback((task: Task) => setDrawer({ key: Date.now(), task }), [])
+
+  const mergeReply = (reply: Task) => setTasks((ts) => ts.map((t) => (t.id === reply.id ? { ...reply, files: t.files } : t)))
+
+  const moveTask = useCallback(async (id: string, status: ColumnId) => {
+    const task = tasks.find((t) => t.id === id)
+    if (!task || task.status === status) return
+    const entering = status === 'claude'
+    if (entering) copyClaudePrompt(task) // before any await
+    setTasks((ts) => ts.map((t) => (t.id === id
+      ? { ...t, status, ...(entering ? { agent_state: null, agent_note: '', agent_at: null } : {}) }
+      : t)))
+    try {
+      mergeReply(await api<Task>('PATCH', `/api/tasks/${id}`, { status }))
+    } catch {
+      load()
+    }
+  }, [tasks, copyClaudePrompt, load])
+
+  const saveTask = useCallback(async (draft: Draft, original: Task | Draft) => {
+    if (!draft.title.trim()) return
+    const base = {
+      title: draft.title.trim(), feature: draft.feature, priority: draft.priority, est: draft.est, due: draft.due,
+      status: draft.status, desc: draft.desc, desc_html: draft.desc_html, claude_model: draft.claude_model, claude_effort: draft.claude_effort,
+    }
+    if (('_new' in original && original._new) || !original.id) {
+      const body = { ...base, subtasks: draft.subtasks }
+      const created = await api<Task>('POST', '/api/tasks', body)
+      const withState = draft.agent_state || draft.agent_note
+        ? await api<Task>('PATCH', `/api/tasks/${created.id}`, { agent_state: draft.agent_state ?? null, agent_note: draft.agent_note ?? '' })
+        : created
+      setTasks((ts) => [...ts, { ...withState, files: [] }])
+      if (draft.feature !== settings.lastTaskFeature) saveSettings({ lastTaskFeature: draft.feature })
+      if (draft.status === 'claude') copyClaudePrompt({ ...withState, files: [] })
+      return
+    }
+    const orig = original as Task
+    const patch: Record<string, unknown> = { ...base }
+    // Only send what the user changed: a Claude session may have written
+    // agent fields or ticked subtasks while the drawer was open.
+    if ((draft.agent_state ?? null) !== (orig.agent_state ?? null)) patch.agent_state = draft.agent_state ?? null
+    if ((draft.agent_note ?? '') !== (orig.agent_note ?? '')) patch.agent_note = draft.agent_note ?? ''
+    if (JSON.stringify(draft.subtasks) !== JSON.stringify(orig.subtasks)) patch.subtasks = draft.subtasks
+    const entering = draft.status === 'claude' && orig.status !== 'claude'
+    const live = tasks.find((t) => t.id === orig.id)
+    if (entering && live) copyClaudePrompt({ ...live, ...base } as Task)
+    setTasks((ts) => ts.map((t) => (t.id === orig.id ? { ...t, ...(patch as Partial<Task>), ...(entering && !('agent_state' in patch) ? { agent_state: null, agent_note: '' } : {}) } : t)))
+    if (draft.feature !== orig.feature) saveSettings({ lastTaskFeature: draft.feature })
+    try {
+      mergeReply(await api<Task>('PATCH', `/api/tasks/${orig.id}`, patch))
+    } catch {
+      load()
+    }
+  }, [tasks, settings.lastTaskFeature, saveSettings, copyClaudePrompt, load])
+
+  const deleteTask = useCallback(async (id: string) => {
+    setTasks((ts) => ts.filter((t) => t.id !== id))
+    await api('DELETE', `/api/tasks/${id}`).catch(() => load())
+  }, [load])
+
+  const removeFile = useCallback(async (taskId: string, fileId: string) => {
+    setTasks((ts) => ts.map((t) => (t.id === taskId ? { ...t, files: t.files.filter((f) => f.id !== fileId) } : t)))
+    await api('DELETE', `/api/task-files/${fileId}`).catch(() => load())
+  }, [load])
+
+  // ---- features -----------------------------------------------------------------
+  const createFeature = useCallback(async (body: { name: string; color: string; skin: string | null }) => {
+    const f = await api<Feature>('POST', '/api/features', body)
+    setFeatures((fs) => [...fs, f])
+    return f
   }, [])
 
-  const drawerOpen = drawerTaskId !== null
+  const updateFeature = useCallback(async (id: string, patch: Partial<Feature>) => {
+    setFeatures((fs) => fs.map((f) => (f.id === id ? { ...f, ...patch } : f)))
+    try {
+      const f = await api<Feature>('PATCH', `/api/features/${id}`, patch)
+      setFeatures((fs) => fs.map((x) => (x.id === id ? f : x)))
+    } catch {
+      load()
+    }
+  }, [load])
+
+  const deleteFeature = useCallback(async (id: string) => {
+    setFeatures((fs) => fs.filter((f) => f.id !== id))
+    setTasks((ts) => ts.filter((t) => t.feature !== id))
+    await api('DELETE', `/api/features/${id}`).catch(() => load())
+  }, [load])
+
+  // ---- templates -----------------------------------------------------------------
+  const createTemplate = useCallback(async (name: string, fields: TemplateFields) => {
+    const t = await api<Template>('POST', '/api/task-templates', { name, fields })
+    setTemplates((ts) => [...ts, t])
+    return t
+  }, [])
+
+  const updateTemplate = useCallback(async (id: string, name: string, fields: TemplateFields) => {
+    const t = await api<Template>('PATCH', `/api/task-templates/${id}`, { name, fields })
+    setTemplates((ts) => ts.map((x) => (x.id === id ? t : x)))
+    return t
+  }, [])
+
+  const deleteTemplate = useCallback(async (id: string) => {
+    setTemplates((ts) => ts.filter((t) => t.id !== id))
+    await api('DELETE', `/api/task-templates/${id}`).catch(() => load())
+  }, [load])
+
+  const markTemplateUsed = useCallback((id: string) => {
+    const ts = new Date().toISOString()
+    setTemplates((list) => list.map((t) => (t.id === id ? { ...t, last_used_at: ts } : t)))
+    api('POST', `/api/task-templates/${id}/used`).catch(() => {})
+  }, [])
+
+  // ---- render -------------------------------------------------------------------
+  if (!loaded) {
+    return <div style={{ display: 'grid', placeItems: 'center', height: '100%', color: 'var(--fg-3)' }}>Loading…</div>
+  }
+
+  const page = route[0] ?? 'board'
+  const boardVisible = !effHidden.includes('board')
+  const counts = {
+    board: tasks.filter((t) => t.status !== 'done').length,
+    features: activeFeatures.length,
+  }
 
   return (
-    <div style={{ position: 'relative', zIndex: 1, display: 'flex', height: '100vh', width: '100%', fontFamily: 'var(--font-body)', color: 'var(--text-body)', overflow: 'hidden' }}>
-      <NavRail />
-
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <TopBar onNewTask={() => openCreateDrawer()} />
-
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <BoardPage
-                refreshKey={boardRefreshKey}
-                onNewTask={() => openCreateDrawer()}
-                onTaskClick={openEditDrawer}
-              />
-            }
-          />
-          <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/projects/:id" element={<ProjectDetailPage />} />
-        </Routes>
+    <div style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden', fontFamily: 'var(--font-body)' }}>
+      <Sidebar page={page} hidden={effHidden} collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} counts={counts} />
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden' }}>
+        <TopBar
+          search={search}
+          onSearch={setSearch}
+          page={page}
+          userName={settings.user_name ?? ''}
+          showNewTask={boardVisible}
+          onPrimary={() => (page === 'features' ? setAddFeatureSignal((n) => n + 1) : openNew('week'))}
+        />
+        <main key={route.join('/')} style={{ flex: 1, padding: '22px 28px 40px', minWidth: 0 }}>
+          {page === 'board' && (
+            <BoardPage
+              tasks={tasks} features={features} settings={settings} search={search}
+              onMove={moveTask} onOpen={openTask} onNew={openNew} onCopyPrompt={copyClaudePrompt}
+              onSaveSettings={saveSettings} onOpenTemplates={() => setTplModal({})}
+            />
+          )}
+          {page === 'features' && (
+            <FeaturesPage
+              features={features} tasks={tasks} extras={extras} addSignal={addFeatureSignal}
+              onCreate={createFeature} onUpdate={updateFeature} onDelete={deleteFeature} onConfirm={setConfirm}
+            />
+          )}
+          {page === 'settings' && <SettingsPage settings={settings} onSave={saveSettings} />}
+        </main>
       </div>
 
-      {/* Task Drawer — rendered at AppShell level so it overlays everything */}
-      {drawerOpen && (
+      {drawer && (
         <TaskDrawer
-          taskId={drawerTaskId === undefined ? undefined : drawerTaskId}
-          projects={appProjects}
-          defaultStatus={drawerDefaultStatus}
-          onSaved={handleSaved}
-          onClose={closeDrawer}
+          key={drawer.key}
+          task={drawer.task}
+          live={drawer.task.id ? tasks.find((t) => t.id === drawer.task.id) : undefined}
+          features={features}
+          settings={settings}
+          templates={templates}
+          templatesOpen={!!tplModal}
+          onSave={async (d) => { await saveTask(d, drawer.task); setDrawer(null) }}
+          onDelete={async () => { if (drawer.task.id) await deleteTask(drawer.task.id); setDrawer(null) }}
+          onClose={() => setDrawer(null)}
+          onRemoveFile={removeFile}
+          onUseTemplate={markTemplateUsed}
+          onOpenTemplates={(spec) => setTplModal(spec)}
         />
       )}
+      {tplModal && (
+        <TemplatesModal
+          spec={tplModal} templates={templates} features={features}
+          onCreate={createTemplate} onUpdate={updateTemplate} onDelete={deleteTemplate}
+          onClose={() => setTplModal(null)}
+        />
+      )}
+      {notice && <PromptNotice key={notice.key} spec={notice} onClose={() => setNotice(null)} />}
+      {confirm && <ConfirmDialog spec={confirm} onClose={() => setConfirm(null)} />}
     </div>
   )
 }
-
-/**
- * App — BrowserRouter wrapper.
- */
-function App() {
-  return (
-    <BrowserRouter>
-      <AppShell />
-    </BrowserRouter>
-  )
-}
-
-export default App

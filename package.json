@@ -1,12 +1,14 @@
 {
   "name": "project-task-board",
   "version": "1.0.0",
-  "description": "Local Kanban board — root workspace scripts",
+  "description": "Grove \u2014 local single-user kanban board with a Claude column",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "server": "npm --prefix server start",
+    "dev": "concurrently -n server,client -c green,cyan \"npm run server\" \"npm run client\"",
+    "server": "npm --prefix server run dev",
     "client": "npm --prefix client run dev",
+    "test": "npm --prefix server test",
+    "typecheck": "npm --prefix client exec tsc -- -b",
     "feedback": "playwright test"
   },
   "devDependencies": {

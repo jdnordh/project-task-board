@@ -20,7 +20,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+
+    /* Pure rule modules shared with the server */
+    "allowJs": true,
+    "checkJs": false
   },
-  "include": ["src"]
+  "include": ["src", "../server/src/lib"]
 }

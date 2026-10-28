@@ -1,0 +1,111 @@
+/* ============================================================
+   Grove app layer — the spec's token names mapped onto Tech Forest
+   semantics (design-system.css stays as shipped), plus shared
+   app-level classes and keyframes. Component styles are inline.
+   ============================================================ */
+
+:root,
+[data-theme='dark'] {
+  --bg-0: var(--bg-base);
+  --bg-1: var(--surface-1);
+  --bg-2: var(--surface-2);
+  --bg-3: var(--surface-3);
+  --fg-1: var(--text-strong);
+  --fg-2: var(--text-body);
+  --fg-3: var(--text-muted);
+  --border: var(--border-default);
+  /* --border-strong, --accent, --success, --warning, --danger, --info come from the DS */
+  --accent-fg: var(--canopy-300);
+  --accent-tint: var(--accent-soft);
+  --accent-line: rgba(74, 222, 128, 0.45);
+  --danger-tint: var(--danger-soft);
+  --warning-tint: var(--warning-soft);
+  --success-tint: var(--success-soft);
+  --info-tint: var(--info-soft);
+
+  --skin-glass-bg: rgba(8, 13, 10, 0.74);
+  --skin-glass-border: rgba(255, 255, 255, 0.14);
+}
+
+html, body, #root { height: 100%; }
+body { background: var(--grad-forest); background-color: var(--bg-0); color: var(--fg-2); }
+
+button { font-family: inherit; }
+input, textarea, select { font-family: var(--font-body); }
+
+.g-input {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-0);
+  color: var(--fg-1);
+  font-size: 14px;
+  outline: none;
+  transition: border-color var(--dur-fast) var(--ease-soft), box-shadow var(--dur-fast) var(--ease-soft);
+}
+.g-input:focus { border-color: var(--border-focus); box-shadow: var(--glow-focus); }
+.g-input::placeholder { color: var(--text-faint); }
+select.g-input { appearance: none; cursor: pointer; padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2374897b' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center; }
+select.g-input option { background: var(--bg-1); color: var(--fg-1); }
+
+.g-btn { transition: background var(--dur-fast) var(--ease-soft), border-color var(--dur-fast) var(--ease-soft),
+  color var(--dur-fast) var(--ease-soft), box-shadow var(--dur-fast) var(--ease-soft), opacity var(--dur-fast); }
+.g-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.g-ghost:hover:not(:disabled) { background: var(--bg-2); color: var(--fg-1); }
+.g-ghost-danger:hover:not(:disabled) { background: var(--danger-tint); }
+.g-primary:hover:not(:disabled) { box-shadow: var(--glow-accent-lg); }
+.g-icon-btn:hover:not(:disabled) { background: var(--bg-2); color: var(--fg-1); }
+
+.g-nav-link:hover { background: var(--bg-2); color: var(--fg-1); }
+
+.g-card { transition: border-color var(--dur-fast) var(--ease-soft), box-shadow var(--dur-fast) var(--ease-soft), opacity var(--dur-fast); }
+.g-card:hover { border-color: var(--border-strong) !important; box-shadow: var(--shadow-md); }
+
+.g-row-hover:hover { background: var(--bg-2); }
+
+.g-clamp { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+
+.g-waiting .g-waiting-copy { display: none; }
+.g-waiting:hover .g-waiting-copy { display: inline-flex; }
+.g-waiting:hover .g-waiting-clock { display: none; }
+
+@keyframes g-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.g-pulse { animation: g-pulse 1.4s ease-in-out infinite; }
+
+@keyframes g-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes g-flash { 0%, 100% { outline-color: transparent; } 20%, 70% { outline-color: var(--accent); } }
+
+/* ---- Rich-text notes (TipTap) */
+.g-notes .ProseMirror { outline: none; min-height: 96px; color: var(--fg-1); font-size: 14px; line-height: 1.6; }
+.g-notes .ProseMirror p { margin: 0 0 6px; }
+.g-notes .ProseMirror h1, .g-notes .ProseMirror h2, .g-notes .ProseMirror h3 { margin: 10px 0 6px; font-size: 16px; }
+.g-notes .ProseMirror ul, .g-notes .ProseMirror ol { margin: 0 0 6px; padding-left: 22px; }
+.g-notes .ProseMirror code { font-family: var(--font-mono); font-size: 12.5px; background: var(--bg-3); padding: 1px 5px; border-radius: 5px; }
+.g-notes .ProseMirror pre { background: var(--bg-3); padding: 10px 12px; border-radius: var(--radius-xs); overflow-x: auto; }
+.g-notes .ProseMirror pre code { background: none; padding: 0; }
+.g-notes .ProseMirror a { color: var(--link); text-decoration: underline; }
+.g-notes .ProseMirror blockquote { margin: 0 0 6px; padding-left: 12px; border-left: 3px solid var(--border-strong); color: var(--fg-2); }
+.g-notes .ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--text-faint); float: left; height: 0; pointer-events: none; }
+
+/* ---- Rendered Claude report (markdown) */
+.g-md { font-size: 13.5px; line-height: 1.6; color: var(--fg-2); overflow-wrap: anywhere; }
+.g-md > :first-child { margin-top: 0; }
+.g-md h1, .g-md h2, .g-md h3, .g-md h4 { font-size: 14.5px; margin: 14px 0 6px; color: var(--fg-1); }
+.g-md p { margin: 0 0 8px; }
+.g-md ul, .g-md ol { margin: 0 0 8px; padding-left: 20px; }
+.g-md code { font-family: var(--font-mono); font-size: 12px; background: var(--bg-3); padding: 1px 5px; border-radius: 5px; }
+.g-md pre { background: var(--bg-3); padding: 10px 12px; border-radius: var(--radius-xs); overflow-x: auto; }
+.g-md pre code { background: none; padding: 0; }
+.g-md a { color: var(--link); text-decoration: underline; }
+.g-md table { border-collapse: collapse; margin: 0 0 8px; }
+.g-md th, .g-md td { border: 1px solid var(--border); padding: 4px 8px; }
+
+/* ---- Pause every animation when idle (tab hidden / window unfocused) or under reduced motion */
+html.g-idle *, html.g-idle *::before, html.g-idle *::after { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-play-state: paused !important; }
+  .g-pulse { animation: none; }
+}
