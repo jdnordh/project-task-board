@@ -72,6 +72,18 @@ CREATE TABLE IF NOT EXISTS task_templates (
   last_used_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS notes (
+  id           TEXT PRIMARY KEY,
+  title        TEXT NOT NULL,
+  meeting_date TEXT NOT NULL,
+  feature_id   TEXT REFERENCES features(id) ON DELETE SET NULL,
+  body_html    TEXT NOT NULL DEFAULT '',
+  body_text    TEXT NOT NULL DEFAULT '',
+  transcript   TEXT NOT NULL DEFAULT '',
+  created_at   TEXT NOT NULL,
+  updated_at   TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS images (
   id         TEXT PRIMARY KEY,
   mime       TEXT NOT NULL,

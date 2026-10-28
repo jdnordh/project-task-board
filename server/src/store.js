@@ -15,6 +15,8 @@ import {
 } from './lib/agent.js';
 import { validateTemplate } from './lib/templates.js';
 import { cleanSkin } from './lib/skins.js';
+import { noteText, countActions, searchNotes } from './lib/notes.js';
+import { localDate, isRealDate } from './lib/dates.js';
 import { sniffImage, imageIds, IMAGE_MAX_BYTES, IMAGE_EXT } from './lib/images.js';
 
 export class HttpError extends Error {
@@ -248,6 +250,66 @@ export function createStore(db, { cliPath = '' } = {}) {
     } catch {
       throw new HttpError(404, `no stored copy, and the file is gone: ${row.path}`);
     }
+  }
+
+  // ---- meeting notes -------------------------------------------------------
+  const NOTE_FIELDS = ['title', 'meeting_date', 'feature_id', 'body_html', 'transcript'];
+  function cleanNoteFields(body) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new HttpError(400, 'body must be an object');
+    const out = {};
+    for (const k of NOTE_FIELDS) {
+      if (!(k in body)) continue;
+      const v = body[k];
+      if (k === 'feature_id') {
+        if (v === null || v === '') out.feature_id = null;
+        else if (typeof v !== 'string' || !getFeature(v)) throw new HttpError(400, 'feature_id must be a feature id or null');
+        else out.feature_id = v;
+      } else if (k === 'meeting_date') {
+        if (!isRealDate(v)) throw new HttpError(400, 'meeting_date must be a real YYYY-MM-DD date');
+        out.meeting_date = v;
+      } else {
+        if (typeof v !== 'string') throw new HttpError(400, `${k} must be text`);
+        out[k] = k === 'title' ? v.trim().slice(0, 300) : v;
+      }
+    }
+    if ('body_html' in out) out.body_text = noteText(out.body_html);
+    return out;
+  }
+  function getNote(id) {
+    const n = q('SELECT * FROM notes WHERE id = ?').get(id);
+    if (!n) throw new HttpError(404, 'note not found');
+    const feature = n.feature_id ? getFeature(n.feature_id) : null;
+    return { ...n, feature_name: feature?.name ?? null, actions: countActions(n.body_html) };
+  }
+  function listNotes(query = {}) {
+    const pick = (k) => (typeof query[k] === 'string' && query[k] ? query[k] : undefined);
+    return searchNotes(q('SELECT * FROM notes').all(), {
+      q: pick('q'), from: pick('from'), to: pick('to'), feature: pick('feature'), today: localDate(),
+    });
+  }
+  function createNote(body) {
+    const f = cleanNoteFields(body ?? {});
+    const id = genId('n');
+    const ts = now();
+    q(`INSERT INTO notes (id, title, meeting_date, feature_id, body_html, body_text, transcript, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      id, f.title || 'Untitled meeting', f.meeting_date ?? localDate(), f.feature_id ?? null,
+      f.body_html ?? '', f.body_text ?? '', f.transcript ?? '', ts, ts,
+    );
+    return getNote(id);
+  }
+  function updateNote(id, body) {
+    getNote(id);
+    const f = cleanNoteFields(body);
+    if ('title' in f && !f.title) f.title = 'Untitled meeting';
+    const cols = Object.keys(f);
+    if (cols.length) {
+      q(`UPDATE notes SET ${cols.map((k) => `${k} = ?`).join(', ')}, updated_at = ? WHERE id = ?`).run(...cols.map((k) => f[k]), now(), id);
+    }
+    return getNote(id);
+  }
+  function deleteNote(id) {
+    q('DELETE FROM notes WHERE id = ?').run(id);
   }
 
   // ---- images ------------------------------------------------------------
@@ -509,6 +571,7 @@ export function createStore(db, { cliPath = '' } = {}) {
     listTasks, getTaskRow, createTask, updateTask, deleteTask,
     filesFor, linkFile, deleteFile, fileContent,
     saveImage, imageContent, taskImages, uploadReportImage,
+    listNotes, getNote, createNote, updateNote, deleteNote,
     setAgentStatus, setSubtask, setReport, agentView, agentStatus,
     listTemplates, createTemplate, updateTemplate, templateUsed, deleteTemplate,
     getState,

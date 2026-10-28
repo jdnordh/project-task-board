@@ -95,6 +95,12 @@ export function createApp(store, { token = '', achievements = null } = {}) {
   app.get('/api/tasks/:id/images', h((req) => store.taskImages(req.params.id)));
   app.post('/api/tasks/:id/report-image', gated, h((req) => store.uploadReportImage(req.params.id, req.body), 201));
 
+  app.get('/api/notes', h((req) => store.listNotes(req.query)));
+  app.get('/api/notes/:id', h((req) => store.getNote(req.params.id)));
+  app.post('/api/notes', h((req) => store.createNote(req.body), 201));
+  app.patch('/api/notes/:id', h((req) => store.updateNote(req.params.id, req.body)));
+  app.delete('/api/notes/:id', h((req) => { store.deleteNote(req.params.id); }));
+
   app.get('/api/task-templates', h(() => store.listTemplates()));
   app.post('/api/task-templates', h((req) => store.createTemplate(req.body), 201));
   app.patch('/api/task-templates/:id', h((req) => store.updateTemplate(req.params.id, req.body)));
