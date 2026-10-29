@@ -228,7 +228,7 @@ export function TaskDrawer(props: TaskDrawerProps) {
             </div>
           </Field>
 
-          <Field label="Notes">
+          <Field label="Notes" group>
             <NotesEditor key={editorKey} initialHtml={draft.desc_html || textToHtml(draft.desc)}
               onChange={(html, text) => setDraft((d) => ({ ...d, desc_html: html, desc: text }))} />
           </Field>

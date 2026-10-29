@@ -66,11 +66,14 @@ export const capStyle: CSSProperties = {
   color: 'var(--fg-3)', fontWeight: 600,
 }
 
-export function Field({ label, hint, children, style, right }: { label: string; hint?: ReactNode; children: ReactNode; style?: CSSProperties; right?: ReactNode }) {
+/** `group` renders a div, for content with no single input (e.g. the notes
+ * editor): a label forwards clicks on its text to its first button. */
+export function Field({ label, hint, children, style, right, group }: { label: string; hint?: ReactNode; children: ReactNode; style?: CSSProperties; right?: ReactNode; group?: boolean }) {
+  const Tag = group ? 'div' : 'label'
   return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0, ...style }} onClick={(e) => {
+    <Tag style={{ display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0, ...style }} onClick={(e) => {
       // Let inner buttons work without the label re-focusing the first input.
-      if ((e.target as HTMLElement).closest('button')) e.preventDefault()
+      if (!group && (e.target as HTMLElement).closest('button')) e.preventDefault()
     }}>
       <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         <span style={capStyle}>{label}</span>
@@ -78,7 +81,7 @@ export function Field({ label, hint, children, style, right }: { label: string; 
       </span>
       {children}
       {hint && <span style={{ fontSize: 12, color: 'var(--fg-3)', lineHeight: 1.4 }}>{hint}</span>}
-    </label>
+    </Tag>
   )
 }
 
