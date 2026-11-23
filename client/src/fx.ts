@@ -1,5 +1,5 @@
 /**
- * fx.ts — feature-completion animations. A copy of the row animates in a
+ * fx.ts — project-completion animations. A copy of the row animates in a
  * fixed layer on <body> (so the scroll area can't clip it) while the real
  * row hides and folds away. Sequencing uses timers only.
  */
@@ -112,7 +112,7 @@ const PLAY: Record<string, (clone: HTMLElement, host: HTMLElement, r: DOMRect, m
 }
 
 /**
- * Animate a feature row out, then write the change.
+ * Animate a project row out, then write the change.
  * `row` is the real row element; `write` runs at `ms`.
  */
 export function playCompletion(row: HTMLElement | null, extrasOn: boolean, write: () => void) {

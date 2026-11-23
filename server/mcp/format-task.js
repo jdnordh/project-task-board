@@ -8,7 +8,7 @@ import { fmtHours } from '../src/lib/format.js';
 export function formatTask(t) {
   const lines = [
     `${t.id} — ${t.title}`,
-    `Feature: ${t.feature_name ?? '—'}`,
+    `Project: ${t.project_name ?? '—'}`,
     `Session title: ${t.session_title}`,
   ];
   if (t.user_name) lines.push(`User's name: ${t.user_name}`);

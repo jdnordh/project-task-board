@@ -10,7 +10,7 @@ export interface Subtask {
   done: boolean
 }
 
-export interface Feature {
+export interface Project {
   id: string
   name: string
   color: string
@@ -33,7 +33,7 @@ export interface TaskFile {
 export interface Task {
   id: string
   title: string
-  feature: string
+  project: string
   priority: number
   est: number
   due: string | null
@@ -67,7 +67,7 @@ export type DueRule = { kind: 'today' } | { kind: 'eow' } | { kind: 'days'; n: n
 
 export interface TemplateFields {
   title?: string
-  feature?: string
+  project?: string
   status?: ColumnId
   priority?: number
   est?: number
@@ -90,7 +90,7 @@ export interface Template {
 export type Settings = Record<string, string>
 
 export interface AppState {
-  features: Feature[]
+  projects: Project[]
   tasks: Task[]
   settings: Settings
   templates: Template[]
@@ -106,7 +106,7 @@ export interface NoteRow {
   id: string
   title: string
   meeting_date: string
-  feature_id: string | null
+  project_id: string | null
   created_at: string
   updated_at: string
   actions: ActionCount
@@ -118,8 +118,8 @@ export interface Note {
   id: string
   title: string
   meeting_date: string
-  feature_id: string | null
-  feature_name: string | null
+  project_id: string | null
+  project_name: string | null
   body_html: string
   body_text: string
   transcript: string

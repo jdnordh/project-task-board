@@ -38,32 +38,32 @@ async function api(method, url, body, headers = {}) {
   return { status: res.status, body: json, headers: res.headers };
 }
 
-async function feature() {
-  return (await api('POST', '/api/features', { name: 'Core', color: '#38E1FF' })).body;
+async function project() {
+  return (await api('POST', '/api/projects', { name: 'Core', color: '#38E1FF' })).body;
 }
 
-test('state seeds a feature and settings', async () => {
+test('state seeds a project and settings', async () => {
   const { body } = await api('GET', '/api/state');
   assert.equal(body.settings.theme, 'dark');
   assert.equal(body.settings.route, 'board');
-  assert.ok(body.features.length >= 1);
+  assert.ok(body.projects.length >= 1);
 });
 
-test('feature create validates; unknown skin stored as null', async () => {
-  assert.equal((await api('POST', '/api/features', { name: '' })).status, 400);
-  const f = (await api('POST', '/api/features', { name: 'X', color: '#fff', skin: 'bogus' })).body;
+test('project create validates; unknown skin stored as null', async () => {
+  assert.equal((await api('POST', '/api/projects', { name: '' })).status, 400);
+  const f = (await api('POST', '/api/projects', { name: 'X', color: '#fff', skin: 'bogus' })).body;
   assert.equal(f.skin, null);
-  const p = (await api('PATCH', `/api/features/${f.id}`, { skin: 'fizz', claude_model: 'opus' })).body;
+  const p = (await api('PATCH', `/api/projects/${f.id}`, { skin: 'fizz', claude_model: 'opus' })).body;
   assert.equal(p.skin, 'fizz');
   assert.equal(p.name, 'X');
-  assert.equal((await api('PATCH', `/api/features/${f.id}`, { skin: null })).body.skin, null);
-  assert.equal((await api('PATCH', '/api/features/nope', {})).status, 404);
+  assert.equal((await api('PATCH', `/api/projects/${f.id}`, { skin: null })).body.skin, null);
+  assert.equal((await api('PATCH', '/api/projects/nope', {})).status, 404);
 });
 
 test('task lifecycle timestamps and default est', async () => {
-  const f = await feature();
+  const f = await project();
   await api('PATCH', '/api/settings', { default_est: 1.5 });
-  const t = (await api('POST', '/api/tasks', { title: 'A', feature: f.id })).body;
+  const t = (await api('POST', '/api/tasks', { title: 'A', project: f.id })).body;
   assert.equal(t.est, 1.5);
   assert.equal(t.started_at, null);
   assert.equal((await api('POST', '/api/tasks', { title: 'A' })).status, 400);
@@ -81,8 +81,8 @@ test('task lifecycle timestamps and default est', async () => {
 });
 
 test('entering Claude resets agent fields but a manual state in the same save sticks', async () => {
-  const f = await feature();
-  const t = (await api('POST', '/api/tasks', { title: 'B', feature: f.id, status: 'progress' })).body;
+  const f = await project();
+  const t = (await api('POST', '/api/tasks', { title: 'B', project: f.id, status: 'progress' })).body;
   await api('PATCH', `/api/tasks/${t.id}`, { status: 'claude' });
   await api('POST', `/api/tasks/${t.id}/agent`, { state: 'running', note: 'x' });
   await api('PUT', `/api/tasks/${t.id}/report`, { markdown: '# hi\r\n' });
@@ -104,8 +104,8 @@ test('entering Claude resets agent fields but a manual state in the same save st
 });
 
 test('agent writers validate', async () => {
-  const f = await feature();
-  const t = (await api('POST', '/api/tasks', { title: 'C', feature: f.id, subtasks: [{ t: 'one', done: false }, { t: 'two', done: false }] })).body;
+  const f = await project();
+  const t = (await api('POST', '/api/tasks', { title: 'C', project: f.id, subtasks: [{ t: 'one', done: false }, { t: 'two', done: false }] })).body;
   assert.equal((await api('POST', `/api/tasks/${t.id}/agent`, { state: null })).status, 400);
   const s = (await api('POST', `/api/tasks/${t.id}/agent`, { state: 'running', note: 'y'.repeat(400) })).body;
   assert.equal(s.agent_note.length, 280);
@@ -114,16 +114,16 @@ test('agent writers validate', async () => {
   assert.equal((await api('POST', `/api/tasks/${t.id}/subtask`, { n: 1, done: 'yes' })).body.error, 'done must be true or false');
   const sub = (await api('POST', `/api/tasks/${t.id}/subtask`, { n: 2 })).body;
   assert.deepEqual(sub.subtask, { n: 2, t: 'two', done: true });
-  const t2 = (await api('POST', '/api/tasks', { title: 'D', feature: f.id })).body;
+  const t2 = (await api('POST', '/api/tasks', { title: 'D', project: f.id })).body;
   assert.equal((await api('POST', `/api/tasks/${t2.id}/subtask`, { n: 1 })).body.error, 'this task has no subtasks');
   assert.equal((await api('PUT', `/api/tasks/${t.id}/report`, { markdown: 'x'.repeat(50001) })).status, 400);
   assert.equal((await api('PUT', `/api/tasks/${t.id}/report`, { markdown: '' })).body.agent_report, '');
 });
 
 test('agent view and agent status', async () => {
-  const f = await feature();
-  await api('PATCH', `/api/features/${f.id}`, { claude_model: 'opus', claude_effort: 'high' });
-  const t = (await api('POST', '/api/tasks', { title: 'Write the docs', feature: f.id, status: 'claude', desc_html: '<p>hello</p>' })).body;
+  const f = await project();
+  await api('PATCH', `/api/projects/${f.id}`, { claude_model: 'opus', claude_effort: 'high' });
+  const t = (await api('POST', '/api/tasks', { title: 'Write the docs', project: f.id, status: 'claude', desc_html: '<p>hello</p>' })).body;
   const v = (await api('GET', `/api/tasks/${t.id}`)).body;
   assert.equal(v.desc_html, undefined);
   assert.equal(v.desc, 'hello');
@@ -136,8 +136,8 @@ test('agent view and agent status', async () => {
 });
 
 test('linking files is gated and serves a sandboxed copy', async () => {
-  const f = await feature();
-  const t = (await api('POST', '/api/tasks', { title: 'E', feature: f.id })).body;
+  const f = await project();
+  const t = (await api('POST', '/api/tasks', { title: 'E', project: f.id })).body;
   const file = path.join(tmp, 'page.html');
   fs.writeFileSync(file, '<h1>hi</h1>');
   assert.equal((await api('POST', `/api/tasks/${t.id}/files`, { path: file })).status, 401);
@@ -160,9 +160,9 @@ test('linking files is gated and serves a sandboxed copy', async () => {
 });
 
 test('templates', async () => {
-  const f = await feature();
-  assert.equal((await api('POST', '/api/task-templates', { name: 'x', fields: { feature: 'nope' } })).status, 400);
-  const tt = (await api('POST', '/api/task-templates', { name: 'Bug fix', fields: { feature: f.id, priority: 1 } })).status;
+  const f = await project();
+  assert.equal((await api('POST', '/api/task-templates', { name: 'x', fields: { project: 'nope' } })).status, 400);
+  const tt = (await api('POST', '/api/task-templates', { name: 'Bug fix', fields: { project: f.id, priority: 1 } })).status;
   assert.equal(tt, 201);
   const list = (await api('GET', '/api/task-templates')).body;
   const id = list.find((x) => x.name === 'Bug fix').id;
@@ -172,10 +172,10 @@ test('templates', async () => {
   assert.equal((await api('DELETE', `/api/task-templates/${id}`)).status, 204);
 });
 
-test('deleting a feature cascades to its tasks', async () => {
-  const f = await feature();
-  const t = (await api('POST', '/api/tasks', { title: 'F', feature: f.id })).body;
-  assert.equal((await api('DELETE', `/api/features/${f.id}`)).status, 204);
+test('deleting a project cascades to its tasks', async () => {
+  const f = await project();
+  const t = (await api('POST', '/api/tasks', { title: 'F', project: f.id })).body;
+  assert.equal((await api('DELETE', `/api/projects/${f.id}`)).status, 204);
   assert.equal((await api('GET', `/api/tasks/${t.id}`)).status, 404);
 });
 
@@ -186,8 +186,8 @@ test('legacy import maps projects and tasks without logging activity', () => {
   const db = openDb(path.join(tmp, 'grove.db'), { legacyPath: legacy, log: () => {} });
   const s = createStore(db);
   const state = s.getState();
-  assert.deepEqual(state.features.map((f) => f.name), ['Site', 'Old']);
-  assert.equal(state.features[1].completed, true);
+  assert.deepEqual(state.projects.map((f) => f.name), ['Site', 'Old']);
+  assert.equal(state.projects[1].completed, true);
   const t = state.tasks.find((x) => x.title === 'Ready one');
   assert.equal(t.status, 'week');
   assert.equal(t.desc, 'notes here');

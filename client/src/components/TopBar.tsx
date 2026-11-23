@@ -22,7 +22,7 @@ function initials(name: string) {
 }
 
 export function TopBar({ search, onSearch, page, userName, showNewTask, onPrimary }: Props) {
-  const isFeatures = page === 'features'
+  const isProjects = page === 'projects'
   const ini = initials(userName)
   return (
     <header style={{
@@ -37,8 +37,8 @@ export function TopBar({ search, onSearch, page, userName, showNewTask, onPrimar
           onKeyDown={(e) => { if (e.key === 'Escape' && search) { e.stopPropagation(); onSearch('') } }} />
       </div>
       <div style={{ flex: 1 }} />
-      {(isFeatures || showNewTask) && (
-        <Button variant="primary" icon="plus" onClick={onPrimary}>{isFeatures ? 'Add feature' : 'New task'}</Button>
+      {(isProjects || showNewTask) && (
+        <Button variant="primary" icon="plus" onClick={onPrimary}>{isProjects ? 'Add project' : 'New task'}</Button>
       )}
       <div title={userName || 'Set your name in Settings'} style={{
         width: 34, height: 34, borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center',

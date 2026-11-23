@@ -40,13 +40,13 @@ test('excerpt is ~200 chars around the word', () => {
 });
 
 const note = (o) => ({
-  id: o.id, title: o.title ?? o.id, meeting_date: o.date, feature_id: o.feature ?? null,
+  id: o.id, title: o.title ?? o.id, meeting_date: o.date, project_id: o.project ?? null,
   body_html: o.html ?? '', body_text: o.text ?? '', transcript: o.transcript ?? '',
   created_at: '2026-01-01T00:00:00Z', updated_at: o.updated ?? '2026-01-01T00:00:00Z',
 });
 const NOTES = [
   note({ id: 'old', date: '2024-09-01', text: 'Budget review with Sam' }),
-  note({ id: 'edge', date: '2026-10-14', feature: 'f1', html: BODY, text: noteText(BODY) }),
+  note({ id: 'edge', date: '2026-10-14', project: 'f1', html: BODY, text: noteText(BODY) }),
   note({ id: 'out', date: '2026-10-13', text: 'budget' }),
   note({ id: 'new', date: '2026-10-27', updated: '2026-10-27T09:00:00Z', text: 'standup' }),
   note({ id: 'new2', date: '2026-10-27', updated: '2026-10-27T10:00:00Z', text: 'retro', transcript: 'Sam: the pipeline budget is tight' }),
@@ -70,10 +70,10 @@ test('excerpt comes from the transcript when the word is only there', () => {
   assert.equal(hit.has_transcript, true);
 });
 
-test('from/to and feature filters; feature none', () => {
+test('from/to and project filters; project none', () => {
   assert.deepEqual(searchNotes(NOTES, { from: '2024-01-01', to: '2024-12-31', today: TODAY }).map((n) => n.id), ['old']);
-  assert.deepEqual(searchNotes(NOTES, { feature: 'f1', from: '2000-01-01', today: TODAY }).map((n) => n.id), ['edge']);
-  assert.ok(!searchNotes(NOTES, { feature: 'none', today: TODAY }).some((n) => n.id === 'edge'));
+  assert.deepEqual(searchNotes(NOTES, { project: 'f1', from: '2000-01-01', today: TODAY }).map((n) => n.id), ['edge']);
+  assert.ok(!searchNotes(NOTES, { project: 'none', today: TODAY }).some((n) => n.id === 'edge'));
 });
 
 test('list rows carry counts but never html or transcript', () => {

@@ -3,7 +3,8 @@
  * agent-server.js — the `grove-agent` MCP server (stdio).
  *
  * Lets a Claude Code session in any folder read a Grove task and keep its
- * card current. It goes through the REST API, never SQLite, so there is one
+ * card current, and read and change every project and task on the board
+ * (board-tools.js). It goes through the REST API, never SQLite, so there is one
  * writer and one set of validation. `.env` is re-read on every call.
  *
  * Register once, at user scope:
@@ -15,18 +16,19 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { agentRules } from '../src/lib/agent.js';
 import { AGENT_STATES } from '../src/lib/constants.js';
-import { formatTask } from './format-task.js';
+import { registerBoardTools } from './board-tools.js';
 import { call, tool, taskId, registerNoteTools, registerImageTools } from './client.js';
 
 const server = new McpServer(
-  { name: 'grove-agent', version: '1.1.0' },
-  { instructions: 'For a Grove task id the user gives you, call get_task first.\n' + agentRules().join('\n') },
+  { name: 'grove-agent', version: '1.2.0' },
+  {
+    instructions: 'For a Grove task id the user gives you, call get_task first.\n' + agentRules().join('\n')
+      + '\nThe project and task tools (list_projects, get_project, create_project, update_project, delete_project, '
+      + 'list_tasks, create_task, update_task, delete_task) read and change the whole board. Change tasks other than your own only when the user asks.',
+  },
 );
 
-server.registerTool('get_task', {
-  description: 'Read a Grove task: title, description, subtasks, your last status, linked files, report, and how to report.',
-  inputSchema: { task_id: taskId },
-}, tool(async ({ task_id }) => formatTask(await call('GET', `/api/tasks/${encodeURIComponent(task_id)}`))));
+registerBoardTools(server);
 
 server.registerTool('set_task_status', {
   description: 'Set your status on the task card (running, question, review, complete) with a short note.',

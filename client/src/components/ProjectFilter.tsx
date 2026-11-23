@@ -1,22 +1,22 @@
 /**
- * FeatureFilter — "Add filter" / "Edit filter" popover. It edits a draft;
- * only Apply commits it. Applied features show as chips with ×.
+ * ProjectFilter — "Add filter" / "Edit filter" popover. It edits a draft;
+ * only Apply commits it. Applied projects show as chips with ×.
  */
 
 import { useState } from 'react'
-import type { Feature } from '../types'
+import type { Project } from '../types'
 import { Button, usePopover } from './ui'
 import { Icon } from './Icon'
-import { FeatureDot } from './skin'
+import { ProjectDot } from './skin'
 
 interface Props {
-  features: Feature[]
+  projects: Project[]
   counts: Map<string, number>
   value: string[]
   onChange: (v: string[]) => void
 }
 
-export function FeatureFilter({ features, counts, value, onChange }: Props) {
+export function ProjectFilter({ projects, counts, value, onChange }: Props) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<string[]>([])
   const [q, setQ] = useState('')
@@ -27,11 +27,11 @@ export function FeatureFilter({ features, counts, value, onChange }: Props) {
     setQ('')
     setOpen(true)
   }
-  const shown = features.filter(
+  const shown = projects.filter(
     (f) => (!f.completed || value.includes(f.id) || draft.includes(f.id)) && f.name.toLowerCase().includes(q.trim().toLowerCase()),
   )
   const toggle = (id: string) => setDraft((d) => (d.includes(id) ? d.filter((x) => x !== id) : [...d, id]))
-  const applied = value.map((id) => features.find((f) => f.id === id)).filter(Boolean) as Feature[]
+  const applied = value.map((id) => projects.find((f) => f.id === id)).filter(Boolean) as Project[]
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -45,10 +45,10 @@ export function FeatureFilter({ features, counts, value, onChange }: Props) {
             border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-lg)', overflow: 'hidden',
           }}>
             <div style={{ padding: 10, borderBottom: '1px solid var(--border)' }}>
-              <input autoFocus className="g-input" placeholder="Search features…" value={q} onChange={(e) => setQ(e.target.value)} style={{ padding: '7px 10px', fontSize: 13 }} />
+              <input autoFocus className="g-input" placeholder="Search projects…" value={q} onChange={(e) => setQ(e.target.value)} style={{ padding: '7px 10px', fontSize: 13 }} />
             </div>
             <div style={{ maxHeight: 260, overflowY: 'auto', padding: 4 }}>
-              {shown.length === 0 && <div style={{ padding: 12, fontSize: 13, color: 'var(--fg-3)' }}>No features match</div>}
+              {shown.length === 0 && <div style={{ padding: 12, fontSize: 13, color: 'var(--fg-3)' }}>No projects match</div>}
               {shown.map((f) => {
                 const on = draft.includes(f.id)
                 return (
@@ -61,7 +61,7 @@ export function FeatureFilter({ features, counts, value, onChange }: Props) {
                       width: 16, height: 16, borderRadius: 5, border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border-strong)'}`,
                       background: on ? 'var(--accent)' : 'transparent', display: 'grid', placeItems: 'center', flexShrink: 0,
                     }}>{on && <Icon name="check" size={11} color="var(--text-on-accent)" strokeWidth={3} />}</span>
-                    <FeatureDot feature={f} size={8} />
+                    <ProjectDot project={f} size={8} />
                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--fg-3)' }}>{counts.get(f.id) ?? 0}</span>
                   </button>
@@ -82,7 +82,7 @@ export function FeatureFilter({ features, counts, value, onChange }: Props) {
           display: 'inline-flex', alignItems: 'center', gap: 7, padding: '4px 6px 4px 10px', borderRadius: 999,
           border: '1px solid var(--border)', background: 'var(--bg-1)', fontSize: 12.5, color: 'var(--fg-1)',
         }}>
-          <FeatureDot feature={f} size={7} />
+          <ProjectDot project={f} size={7} />
           {f.name}
           <button type="button" aria-label={`Remove ${f.name} filter`} onClick={() => onChange(value.filter((x) => x !== f.id))}
             className="g-btn g-icon-btn" style={{ border: 'none', background: 'transparent', color: 'var(--fg-3)', cursor: 'pointer', display: 'grid', placeItems: 'center', borderRadius: 999, width: 18, height: 18, padding: 0 }}>

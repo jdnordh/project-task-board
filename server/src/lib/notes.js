@@ -59,16 +59,16 @@ export function searchWords(q) {
 
 /**
  * Search full note rows. No `q` → the last NOTE_DEFAULT_DAYS days unless
- * from/to say otherwise; with `q` → all dates. `feature` is an id or 'none'.
+ * from/to say otherwise; with `q` → all dates. `project` is an id or 'none'.
  * Rows come back newest meeting first, without HTML, text or transcript.
  */
-export function searchNotes(notes, { q, from, to, feature, today }) {
+export function searchNotes(notes, { q, from, to, project, today }) {
   const words = searchWords(q);
   const lo = from || (words.length ? null : shiftDate(today, -NOTE_DEFAULT_DAYS));
   const hi = to || null;
   return notes
     .filter((n) => (!lo || n.meeting_date >= lo) && (!hi || n.meeting_date <= hi))
-    .filter((n) => !feature || (feature === 'none' ? !n.feature_id : n.feature_id === feature))
+    .filter((n) => !project || (project === 'none' ? !n.project_id : n.project_id === project))
     .filter((n) => {
       if (!words.length) return true;
       const hay = `${n.title}\n${n.body_text}\n${n.transcript ?? ''}`.toLowerCase();
@@ -79,7 +79,7 @@ export function searchNotes(notes, { q, from, to, feature, today }) {
       const first = words[0];
       const inBody = !first || `${n.title}\n${n.body_text}`.toLowerCase().includes(first);
       return {
-        id: n.id, title: n.title, meeting_date: n.meeting_date, feature_id: n.feature_id,
+        id: n.id, title: n.title, meeting_date: n.meeting_date, project_id: n.project_id,
         created_at: n.created_at, updated_at: n.updated_at,
         actions: countActions(n.body_html),
         has_transcript: !!n.transcript?.trim(),

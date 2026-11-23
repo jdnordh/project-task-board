@@ -22,7 +22,7 @@ export const CATALOGUE = [
   { id: 'early-bird', name: 'Ahead of Schedule', desc: 'Finish 10 dated tasks at least a day before they are due.', points: 20, goal: 10 },
   { id: 'box-ticker', name: 'Box Ticker', desc: 'Finish 10 tasks that have 3 or more subtasks, every one ticked.', points: 20, goal: 10 },
   { id: 'pair-programmer', name: 'Pair Programmer', desc: 'Finish 10 tasks that went through the Claude column.', points: 25, goal: 10 },
-  { id: 'spread-out', name: 'Spread Out', desc: 'Finish tasks in 5 different features.', points: 15, goal: 5 },
+  { id: 'spread-out', name: 'Spread Out', desc: 'Finish tasks in 5 different projects.', points: 15, goal: 5 },
   { id: 'big-week', name: 'Big Week', desc: 'Finish 10 tasks in one week, Monday to Sunday.', points: 30, goal: 10 },
   { id: 'on-a-roll', name: 'On a Roll', desc: 'Finish a task 5 weekdays in a row.', points: 20, goal: 5 },
 
@@ -78,7 +78,7 @@ export function completions(events) {
           if (doneAt - startAt >= MIN_WORK_MS && est > 0) {
             out.push({
               task, startAt, doneAt, est, due: start.data.due ?? null, priority: start.data.priority,
-              feature: e.data.feature ?? start.data.feature, subsTotal: e.data.subs_total ?? 0, subsDone: e.data.subs_done ?? 0,
+              project: e.data.project ?? start.data.project, subsTotal: e.data.subs_total ?? 0, subsDone: e.data.subs_done ?? 0,
               claude, blocked,
             });
           }
@@ -190,7 +190,7 @@ export function evaluate(events, now = new Date()) {
     'early-bird': count((c) => c.due && localDate(addDays(c.doneAt, 1)) <= c.due),
     'box-ticker': count((c) => c.subsTotal >= 3 && c.subsDone === c.subsTotal),
     'pair-programmer': count((c) => c.claude),
-    'spread-out': new Set(done.map((c) => c.feature)).size,
+    'spread-out': new Set(done.map((c) => c.project)).size,
     'big-week': Math.max(0, ...weekCounts.values()),
     'on-a-roll': { best: roll.best, current: roll.current },
     'eat-the-frog': count((c) => c.priority === 1 && c.doneAt - c.startAt <= 86400000),

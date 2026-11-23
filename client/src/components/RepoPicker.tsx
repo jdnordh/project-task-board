@@ -10,7 +10,7 @@ import { loadRepos, type RepoList } from '../api'
 interface Props {
   value: string | null
   onChange: (path: string | null) => void
-  /** Label for the empty choice, e.g. "Feature default (app)". */
+  /** Label for the empty choice, e.g. "Project default (app)". */
   emptyLabel?: string
 }
 

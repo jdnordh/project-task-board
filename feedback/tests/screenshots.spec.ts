@@ -5,7 +5,7 @@ import { test } from '@playwright/test';
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
-for (const page of ['board', 'features', 'settings']) {
+for (const page of ['board', 'projects', 'settings']) {
   test(`${page} page screenshot`, async ({ page: p }) => {
     await p.goto(`/#/${page}`);
     await p.waitForTimeout(800);

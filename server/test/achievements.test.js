@@ -9,7 +9,7 @@ let seq = 0;
 function ev(task, from, to, at, extra = {}) {
   seq += 1;
   return { id: seq, kind: 'task_status', ref_id: task, at: new Date(at).toISOString(),
-    data: { task, from, to, est: 1, due: null, priority: 3, feature: 'f1', subs_total: 0, subs_done: 0, ...extra } };
+    data: { task, from, to, est: 1, due: null, priority: 3, project: 'f1', subs_total: 0, subs_done: 0, ...extra } };
 }
 /** A task started at `start` and finished `mins` later. */
 function finished(task, start, mins, extra = {}, doneExtra = {}) {

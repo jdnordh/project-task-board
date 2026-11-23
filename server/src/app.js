@@ -52,9 +52,9 @@ export function createApp(store, { token = '', achievements = null } = {}) {
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.get('/api/state', h(() => store.getState()));
 
-  app.post('/api/features', h((req) => store.createFeature(req.body), 201));
-  app.patch('/api/features/:id', h((req) => store.updateFeature(req.params.id, req.body ?? {})));
-  app.delete('/api/features/:id', h((req) => { store.deleteFeature(req.params.id); }));
+  app.post('/api/projects', h((req) => store.createProject(req.body), 201));
+  app.patch('/api/projects/:id', h((req) => store.updateProject(req.params.id, req.body ?? {})));
+  app.delete('/api/projects/:id', h((req) => { store.deleteProject(req.params.id); }));
 
   app.post('/api/tasks', h((req) => store.createTask(req.body), 201));
   app.patch('/api/tasks/:id', h((req) => store.updateTask(req.params.id, req.body)));

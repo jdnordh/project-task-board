@@ -10,13 +10,14 @@ import path from 'node:path';
 import { z } from 'zod';
 import { REPO_ROOT, readEnv } from '../src/env.js';
 import { IMAGE_EXT_BY_MIME } from '../src/lib/images.js';
-import { findFeature } from '../src/lib/buddy.js';
+import { findProject } from '../src/lib/buddy.js';
 import { noteLine, formatNote } from './format.js';
 
 export const REPO = REPO_ROOT.replace(/\\/g, '/');
 
 function port() {
-  return Number(readEnv().PORT) || 3004;
+  // GROVE_API_PORT (tests) wins over .env's PORT.
+  return Number(process.env.GROVE_API_PORT) || Number(readEnv().PORT) || 3004;
 }
 
 async function send(method, url, body, bearer) {
@@ -69,27 +70,27 @@ export function registerNoteTools(server) {
       q: z.string().optional(),
       from: z.string().optional().describe('YYYY-MM-DD, meeting date on or after'),
       to: z.string().optional().describe('YYYY-MM-DD, meeting date on or before'),
-      feature: z.string().optional().describe('Feature id or name, or "none" for notes without a feature'),
+      project: z.string().optional().describe('Project id or name, or "none" for notes without a project'),
     },
-  }, tool(async ({ q, from, to, feature }) => {
+  }, tool(async ({ q, from, to, project }) => {
     const state = await call('GET', '/api/state');
     const params = new URLSearchParams();
     if (q) params.set('q', q);
     if (from) params.set('from', from);
     if (to) params.set('to', to);
-    if (feature) {
-      const f = feature === 'none' ? { id: 'none' } : findFeature(feature, state.features);
-      if (!f) throw new Error(`Unknown feature "${feature}". Features: ${state.features.map((x) => x.name).join(', ')}`);
-      params.set('feature', f.id);
+    if (project) {
+      const f = project === 'none' ? { id: 'none' } : findProject(project, state.projects);
+      if (!f) throw new Error(`Unknown project "${project}". Projects: ${state.projects.map((x) => x.name).join(', ')}`);
+      params.set('project', f.id);
     }
     const rows = await call('GET', `/api/notes?${params}`);
-    const names = new Map(state.features.map((f) => [f.id, f.name]));
+    const names = new Map(state.projects.map((f) => [f.id, f.name]));
     if (!rows.length) return q ? `No notes match "${q}".` : 'No meeting notes in that range.';
-    return rows.map((n) => noteLine(n, names.get(n.feature_id))).join('\n');
+    return rows.map((n) => noteLine(n, names.get(n.project_id))).join('\n');
   }));
 
   server.registerTool('get_meeting_note', {
-    description: 'Read one meeting note: title, date, feature, the text with [ ] / [x] action items, then the transcript.',
+    description: 'Read one meeting note: title, date, project, the text with [ ] / [x] action items, then the transcript.',
     inputSchema: { id: z.string().min(1) },
   }, tool(async ({ id }) => formatNote(await call('GET', `/api/notes/${enc(id)}`))));
 }

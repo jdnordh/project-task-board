@@ -45,32 +45,32 @@ export function shortTaskName(title) {
   return (kept.length ? kept : words).slice(0, 4).join(' ');
 }
 
-export function sessionTitle(task, featureName) {
+export function sessionTitle(task, projectName) {
   const short = shortTaskName(task.title) || task.id;
-  return featureName ? `${featureName}: ${short}` : short;
+  return projectName ? `${projectName}: ${short}` : short;
 }
 
-export function claudePrompt(task, cliPath, featureName) {
+export function claudePrompt(task, cliPath, projectName) {
   const cli = String(cliPath ?? '').replace(/\\/g, '/');
   return [
     `Please work on my Grove task ${task.id}: "${task.title}".`,
-    `Name this session "${sessionTitle(task, featureName)}".`,
+    `Name this session "${sessionTitle(task, projectName)}".`,
     `Use the grove-agent MCP tools. Start with get_task.`,
     `No such tools? Run: node "${cli}" task ${task.id}`,
   ].join('\n');
 }
 
-/** Model and effort resolve separately: the task's value, then the feature's, else null. */
-export function claudeSetup(task, feature) {
+/** Model and effort resolve separately: the task's value, then the project's, else null. */
+export function claudeSetup(task, project) {
   return {
-    model: task?.claude_model ?? feature?.claude_model ?? null,
-    effort: task?.claude_effort ?? feature?.claude_effort ?? null,
+    model: task?.claude_model ?? project?.claude_model ?? null,
+    effort: task?.claude_effort ?? project?.claude_effort ?? null,
   };
 }
 
-/** The folder a worker runs in: the task's repo, then the feature's, else null. */
-export function resolveRepo(task, feature) {
-  return task?.repo_path ?? feature?.repo_path ?? null;
+/** The folder a worker runs in: the task's repo, then the project's, else null. */
+export function resolveRepo(task, project) {
+  return task?.repo_path ?? project?.repo_path ?? null;
 }
 
 /** "Opus · high effort", "Sonnet", "max effort", or '' when nothing is set. */
@@ -107,7 +107,7 @@ export function agentRules({ cli, id, title } = {}) {
   const name = title ? `"${title}"` : 'the "Session title" the task shows';
   return [
     'The user watches this task as a card in the Claude column of their Grove board. Keep the card current:',
-    `1. If you can rename your session (a session-title tool, or /rename), name it ${name}, so the user can tell which feature and task it is.`,
+    `1. If you can rename your session (a session-title tool, or /rename), name it ${name}, so the user can tell which project and task it is.`,
     `2. After reading the task, set status running: ${t.status('running', '<what you are doing now>')}`,
     '3. Update the running note when you move to a new step.',
     `4. Before you stop to ask the user something, set status question: ${t.status('question', '<the question>')}`,

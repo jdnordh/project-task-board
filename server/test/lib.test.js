@@ -175,22 +175,22 @@ test('resolveDue uses local dates', () => {
 });
 
 test('applyTemplate twice adds nothing new', () => {
-  const draft = { title: '', feature: 'f1', priority: 2, desc: '', desc_html: '', subtasks: [{ t: 'Write tests', done: true }] };
-  const fields = { title: 'Bug', priority: 1, feature: 'gone', desc_html: '<p>Steps</p>', subtasks: [{ t: 'write tests' }, { t: 'Fix' }] };
-  const once = applyTemplate(draft, fields, { featureIds: ['f1'] });
+  const draft = { title: '', project: 'f1', priority: 2, desc: '', desc_html: '', subtasks: [{ t: 'Write tests', done: true }] };
+  const fields = { title: 'Bug', priority: 1, project: 'gone', desc_html: '<p>Steps</p>', subtasks: [{ t: 'write tests' }, { t: 'Fix' }] };
+  const once = applyTemplate(draft, fields, { projectIds: ['f1'] });
   assert.equal(once.title, 'Bug');
-  assert.equal(once.feature, 'f1');
+  assert.equal(once.project, 'f1');
   assert.equal(once.desc, 'Steps');
   assert.deepEqual(once.subtasks, [{ t: 'Write tests', done: true }, { t: 'Fix', done: false }]);
-  const twice = applyTemplate(once, fields, { featureIds: ['f1'] });
+  const twice = applyTemplate(once, fields, { projectIds: ['f1'] });
   assert.equal(twice.desc_html, once.desc_html);
   assert.equal(twice.subtasks.length, 2);
 });
 
 test('fieldsFromTask skips due, done status, empty parts', () => {
-  const f = fieldsFromTask({ title: 'T', feature: 'f1', status: 'done', priority: 2, est: 1, due: '2026-01-01',
+  const f = fieldsFromTask({ title: 'T', project: 'f1', status: 'done', priority: 2, est: 1, due: '2026-01-01',
     desc: '', desc_html: '', subtasks: [], claude_model: null, claude_effort: 'high' });
-  assert.deepEqual(f, { title: 'T', feature: 'f1', priority: 2, est: 1, claude_effort: 'high' });
+  assert.deepEqual(f, { title: 'T', project: 'f1', priority: 2, est: 1, claude_effort: 'high' });
 });
 
 test('recentTemplates and templateSummary', () => {
@@ -200,7 +200,7 @@ test('recentTemplates and templateSummary', () => {
   ];
   assert.deepEqual(recentTemplates(list, 3).map((t) => t.name), ['y', 'z', 'a']);
   assert.equal(
-    templateSummary({ feature: 'f1', priority: 2, est: 1, due: { kind: 'eow' }, subtasks: [1, 2, 3], claude_model: 'opus', claude_effort: 'high' }, [{ id: 'f1', name: 'Core' }]),
+    templateSummary({ project: 'f1', priority: 2, est: 1, due: { kind: 'eow' }, subtasks: [1, 2, 3], claude_model: 'opus', claude_effort: 'high' }, [{ id: 'f1', name: 'Core' }]),
     'Core · P2 · 1h · Due end of week · 3 subtasks · Opus · high effort',
   );
 });
@@ -209,14 +209,14 @@ test('page visibility rules', () => {
   assert.deepEqual(parseHidden('nope'), []);
   assert.deepEqual(parseHidden(null), []);
   assert.deepEqual(effectiveHidden([], false), ['achievements']);
-  assert.equal(firstVisible(['board', 'features'], false), 'notes');
-  assert.equal(firstVisible(['board', 'features', 'notes'], false), 'settings');
-  assert.deepEqual(lockReason('features', [], false), { kind: 'needed', by: 'board' });
-  assert.deepEqual(lockReason('board', ['features'], true), { kind: 'last' });
-  assert.deepEqual(lockReason('features', ['board'], false), { kind: 'last' });
+  assert.equal(firstVisible(['board', 'projects'], false), 'notes');
+  assert.equal(firstVisible(['board', 'projects', 'notes'], false), 'settings');
+  assert.deepEqual(lockReason('projects', [], false), { kind: 'needed', by: 'board' });
+  assert.deepEqual(lockReason('board', ['projects'], true), { kind: 'last' });
+  assert.deepEqual(lockReason('projects', ['board'], false), { kind: 'last' });
   assert.equal(lockReason('achievements', ['board'], true), null);
-  assert.deepEqual(turnOn(['board', 'features'], 'board'), { hidden: [], also: ['features'] });
-  assert.deepEqual(turnOff([], 'features', false), []);
+  assert.deepEqual(turnOn(['board', 'projects'], 'board'), { hidden: [], also: ['projects'] });
+  assert.deepEqual(turnOff([], 'projects', false), []);
   assert.deepEqual(turnOff([], 'board', false), ['board']);
 });
 

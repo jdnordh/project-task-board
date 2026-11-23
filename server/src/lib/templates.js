@@ -12,7 +12,7 @@ import { fmtHours } from './format.js';
 import { setupLabel } from './agent.js';
 
 export const TEMPLATE_FIELDS = [
-  'title', 'feature', 'status', 'priority', 'est', 'due', 'desc_html', 'subtasks', 'claude_model', 'claude_effort',
+  'title', 'project', 'status', 'priority', 'est', 'due', 'desc_html', 'subtasks', 'claude_model', 'claude_effort',
 ];
 
 function cleanSubtasks(list) {
@@ -62,9 +62,9 @@ export function validateTemplate(body, { partial = false } = {}) {
           if (t) out.title = t;
           break;
         }
-        case 'feature':
-          if (typeof v !== 'string' || !v) return { error: 'feature must be a feature id' };
-          out.feature = v;
+        case 'project':
+          if (typeof v !== 'string' || !v) return { error: 'project must be a project id' };
+          out.project = v;
           break;
         case 'status':
           if (!COLUMN_IDS.includes(v)) return { error: 'status must be a column id' };
@@ -128,17 +128,17 @@ export function resolveDue(due, now = new Date()) {
  * @template T
  * @param {T} draft
  * @param {object} fields
- * @param {{ featureIds?: string[], now?: Date }} [opts]
+ * @param {{ projectIds?: string[], now?: Date }} [opts]
  * @returns {T}
  */
-export function applyTemplate(draft, fields, { featureIds, now = new Date() } = {}) {
+export function applyTemplate(draft, fields, { projectIds, now = new Date() } = {}) {
   const next = { ...draft, subtasks: [...(draft.subtasks ?? [])] };
   for (const k of ['title', 'status', 'priority', 'est', 'claude_model', 'claude_effort']) {
     if (fields[k] !== undefined) next[k] = fields[k];
   }
   if (fields.due !== undefined) next.due = resolveDue(fields.due, now);
-  if (fields.feature !== undefined && (!featureIds || featureIds.includes(fields.feature))) {
-    next.feature = fields.feature;
+  if (fields.project !== undefined && (!projectIds || projectIds.includes(fields.project))) {
+    next.project = fields.project;
   }
   if (fields.desc_html) {
     const own = draft.desc_html || textToHtml(draft.desc ?? '');
@@ -163,7 +163,7 @@ export function applyTemplate(draft, fields, { featureIds, now = new Date() } = 
 export function fieldsFromTask(task) {
   const f = {};
   if (task.title?.trim()) f.title = task.title.trim();
-  if (task.feature) f.feature = task.feature;
+  if (task.project) f.project = task.project;
   if (task.status && task.status !== 'done') f.status = task.status;
   if (Number.isInteger(task.priority)) f.priority = task.priority;
   if (typeof task.est === 'number') f.est = task.est;
@@ -191,10 +191,10 @@ export function dueLabel(due) {
   return `Due in ${due.n} day${due.n === 1 ? '' : 's'}`;
 }
 
-export function templateSummary(fields, features = []) {
+export function templateSummary(fields, projects = []) {
   const parts = [];
-  if (fields.feature) {
-    const f = features.find((x) => x.id === fields.feature);
+  if (fields.project) {
+    const f = projects.find((x) => x.id === fields.project);
     if (f) parts.push(f.name);
   }
   if (fields.priority) parts.push(`P${fields.priority}`);

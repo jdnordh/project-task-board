@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from './api'
 import { copyText } from './clipboard'
-import type { AppState, ColumnId, Draft, Feature, Settings, Task, Template, TemplateFields } from './types'
+import type { AppState, ColumnId, Draft, Project, Settings, Task, Template, TemplateFields } from './types'
 import {
   claudePrompt, claudeSetup, setupLabel, cleanDefaultEst, parseHidden, effectiveHidden, isVisible, firstVisible, PAGES,
 } from './lib'
@@ -18,7 +18,7 @@ import { PromptNotice, type NoticeSpec } from './components/PromptNotice'
 import { TaskDrawer } from './components/TaskDrawer'
 import { TemplatesModal, type TemplatesModalSpec } from './components/TemplatesModal'
 import { BoardPage } from './pages/BoardPage'
-import { FeaturesPage } from './pages/FeaturesPage'
+import { ProjectsPage } from './pages/ProjectsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { NotesPage, type PromoteSpec } from './pages/NotesPage'
 import { AchievementsPage } from './pages/AchievementsPage'
@@ -42,7 +42,7 @@ export function navigate(page: string, ...sub: string[]) {
 }
 
 export default function App() {
-  const [features, setFeatures] = useState<Feature[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const tasksRef = useRef(tasks)
   tasksRef.current = tasks
@@ -55,7 +55,7 @@ export default function App() {
   const [tplModal, setTplModal] = useState<TemplatesModalSpec | null>(null)
   const [notice, setNotice] = useState<NoticeSpec | null>(null)
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null)
-  const [addFeatureSignal, setAddFeatureSignal] = useState(0)
+  const [addProjectSignal, setAddProjectSignal] = useState(0)
   const [collapsed, setCollapsed] = useState(() => window.matchMedia(NARROW).matches)
   const cliRef = useRef('')
   const [ach, setAch] = useState<AchievementsPayload | null>(null)
@@ -71,7 +71,7 @@ export default function App() {
   // ---- load --------------------------------------------------------------------
   const load = useCallback(async () => {
     const s = await api<AppState>('GET', '/api/state')
-    setFeatures(s.features)
+    setProjects(s.projects)
     setTasks(s.tasks)
     setSettings(s.settings)
     setTemplates(s.templates)
@@ -143,15 +143,15 @@ export default function App() {
   }, [])
 
   // ---- Claude column: prompt copy and polling ---------------------------------
-  const featureOf = useCallback((id: string) => features.find((f) => f.id === id), [features])
+  const projectOf = useCallback((id: string) => projects.find((f) => f.id === id), [projects])
 
   const copyClaudePrompt = useCallback((task: Task) => {
-    const feature = featureOf(task.feature)
-    const text = claudePrompt(task, cliRef.current, feature?.name)
-    const setup = setupLabel(claudeSetup(task, feature))
+    const project = projectOf(task.project)
+    const text = claudePrompt(task, cliRef.current, project?.name)
+    const setup = setupLabel(claudeSetup(task, project))
     // copyText starts synchronously: nothing may be awaited before this call.
     copyText(text).then((copied) => setNotice({ key: Date.now(), title: task.title, text, setup, copied }))
-  }, [featureOf])
+  }, [projectOf])
 
   const pollAgents = useCallback(async () => {
     try {
@@ -276,21 +276,21 @@ export default function App() {
   }, [])
 
   // ---- tasks --------------------------------------------------------------------
-  const activeFeatures = useMemo(() => features.filter((f) => !f.completed), [features])
+  const activeProjects = useMemo(() => projects.filter((f) => !f.completed), [projects])
 
-  const defaultFeature = useCallback(() => {
-    const last = settings.lastTaskFeature
-    if (last && activeFeatures.some((f) => f.id === last)) return last
-    return activeFeatures[0]?.id ?? features[0]?.id ?? ''
-  }, [settings.lastTaskFeature, activeFeatures, features])
+  const defaultProject = useCallback(() => {
+    const last = settings.lastTaskProject
+    if (last && activeProjects.some((f) => f.id === last)) return last
+    return activeProjects[0]?.id ?? projects[0]?.id ?? ''
+  }, [settings.lastTaskProject, activeProjects, projects])
 
   const openNew = useCallback((status: ColumnId) => {
     const draft: Draft = {
-      _new: true, title: '', feature: defaultFeature(), priority: 2, est: cleanDefaultEst(settings.default_est),
+      _new: true, title: '', project: defaultProject(), priority: 2, est: cleanDefaultEst(settings.default_est),
       due: null, status, desc: '', desc_html: '', subtasks: [], claude_model: null, claude_effort: null, repo_path: null,
     }
     setDrawer({ key: Date.now(), task: draft })
-  }, [defaultFeature, settings.default_est])
+  }, [defaultProject, settings.default_est])
 
   const openTask = useCallback((task: Task) => setDrawer({ key: Date.now(), task }), [])
 
@@ -320,7 +320,7 @@ export default function App() {
   const saveTask = useCallback(async (draft: Draft, original: Task | Draft) => {
     if (!draft.title.trim()) return
     const base = {
-      title: draft.title.trim(), feature: draft.feature, priority: draft.priority, est: draft.est, due: draft.due,
+      title: draft.title.trim(), project: draft.project, priority: draft.priority, est: draft.est, due: draft.due,
       status: draft.status, desc: draft.desc, desc_html: draft.desc_html, claude_model: draft.claude_model, claude_effort: draft.claude_effort, repo_path: draft.repo_path,
     }
     if (('_new' in original && original._new) || !original.id) {
@@ -330,7 +330,7 @@ export default function App() {
         ? await api<Task>('PATCH', `/api/tasks/${created.id}`, { agent_state: draft.agent_state ?? null, agent_note: draft.agent_note ?? '' })
         : created
       setTasks((ts) => [...ts, { ...withState, files: [] }])
-      if (draft.feature !== settings.lastTaskFeature) saveSettings({ lastTaskFeature: draft.feature })
+      if (draft.project !== settings.lastTaskProject) saveSettings({ lastTaskProject: draft.project })
       if (draft.status === 'claude') copyClaudePrompt({ ...withState, files: [] })
       return
     }
@@ -347,13 +347,13 @@ export default function App() {
     const live = tasks.find((t) => t.id === orig.id)
     if (entering && live) copyClaudePrompt({ ...live, ...base } as Task)
     setTasks((ts) => ts.map((t) => (t.id === orig.id ? { ...t, ...(patch as Partial<Task>), ...(entering && !('agent_state' in patch) ? { agent_state: null, agent_note: '' } : {}) } : t)))
-    if (draft.feature !== orig.feature) saveSettings({ lastTaskFeature: draft.feature })
+    if (draft.project !== orig.project) saveSettings({ lastTaskProject: draft.project })
     try {
       mergeReply(await api<Task>('PATCH', `/api/tasks/${orig.id}`, patch))
     } catch {
       load()
     }
-  }, [tasks, settings.lastTaskFeature, saveSettings, copyClaudePrompt, load])
+  }, [tasks, settings.lastTaskProject, saveSettings, copyClaudePrompt, load])
 
   const deleteTask = useCallback(async (id: string) => {
     setTasks((ts) => ts.filter((t) => t.id !== id))
@@ -365,29 +365,29 @@ export default function App() {
     await api('DELETE', `/api/task-files/${fileId}`).catch(() => load())
   }, [load])
 
-  // ---- features -----------------------------------------------------------------
-  const createFeature = useCallback(async (body: { name: string; color: string; skin: string | null }) => {
-    const f = await api<Feature>('POST', '/api/features', body)
-    setFeatures((fs) => [...fs, f])
+  // ---- projects -----------------------------------------------------------------
+  const createProject = useCallback(async (body: { name: string; color: string; skin: string | null }) => {
+    const f = await api<Project>('POST', '/api/projects', body)
+    setProjects((fs) => [...fs, f])
     return f
   }, [])
 
-  const updateFeature = useCallback(async (id: string, patch: Partial<Feature>) => {
+  const updateProject = useCallback(async (id: string, patch: Partial<Project>) => {
     // Always send skin, even when null, so a PATCH never leaves it ambiguous.
-    const body = 'skin' in patch ? patch : { ...patch, skin: features.find((f) => f.id === id)?.skin ?? null }
-    setFeatures((fs) => fs.map((f) => (f.id === id ? { ...f, ...patch } : f)))
+    const body = 'skin' in patch ? patch : { ...patch, skin: projects.find((f) => f.id === id)?.skin ?? null }
+    setProjects((fs) => fs.map((f) => (f.id === id ? { ...f, ...patch } : f)))
     try {
-      const f = await api<Feature>('PATCH', `/api/features/${id}`, body)
-      setFeatures((fs) => fs.map((x) => (x.id === id ? f : x)))
+      const f = await api<Project>('PATCH', `/api/projects/${id}`, body)
+      setProjects((fs) => fs.map((x) => (x.id === id ? f : x)))
     } catch {
       load()
     }
-  }, [features, load])
+  }, [projects, load])
 
-  const deleteFeature = useCallback(async (id: string) => {
-    setFeatures((fs) => fs.filter((f) => f.id !== id))
-    setTasks((ts) => ts.filter((t) => t.feature !== id))
-    await api('DELETE', `/api/features/${id}`).catch(() => load())
+  const deleteProject = useCallback(async (id: string) => {
+    setProjects((fs) => fs.filter((f) => f.id !== id))
+    setTasks((ts) => ts.filter((t) => t.project !== id))
+    await api('DELETE', `/api/projects/${id}`).catch(() => load())
   }, [load])
 
   // ---- templates -----------------------------------------------------------------
@@ -435,7 +435,7 @@ export default function App() {
   const boardVisible = !effHidden.includes('board')
   const counts = {
     board: tasks.filter((t) => t.status !== 'done').length,
-    features: activeFeatures.length,
+    projects: activeProjects.length,
   }
 
   return (
@@ -449,24 +449,24 @@ export default function App() {
           page={page}
           userName={settings.user_name ?? ''}
           showNewTask={boardVisible}
-          onPrimary={() => (page === 'features' ? setAddFeatureSignal((n) => n + 1) : openNew('week'))}
+          onPrimary={() => (page === 'projects' ? setAddProjectSignal((n) => n + 1) : openNew('week'))}
         />
         <main key={route.join('/')} style={{ flex: 1, padding: '22px 28px 40px', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           {page === 'board' && (
             <BoardPage
-              tasks={tasks} features={features} settings={settings} search={search}
+              tasks={tasks} projects={projects} settings={settings} search={search}
               onMove={moveTask} onOpen={openTask} onNew={openNew} onCopyPrompt={copyClaudePrompt}
               onSaveSettings={saveSettings} onOpenTemplates={() => setTplModal({})}
             />
           )}
-          {page === 'features' && (
-            <FeaturesPage
-              features={features} tasks={tasks} extras={extras} addSignal={addFeatureSignal}
-              onCreate={createFeature} onUpdate={updateFeature} onDelete={deleteFeature} onConfirm={setConfirm}
+          {page === 'projects' && (
+            <ProjectsPage
+              projects={projects} tasks={tasks} extras={extras} addSignal={addProjectSignal}
+              onCreate={createProject} onUpdate={updateProject} onDelete={deleteProject} onConfirm={setConfirm}
             />
           )}
           {page === 'notes' && (
-            <NotesPage features={features} noteId={route[1]} onPromote={promoteTask} onConfirm={setConfirm} />
+            <NotesPage projects={projects} noteId={route[1]} onPromote={promoteTask} onConfirm={setConfirm} />
           )}
           {page === 'settings' && <SettingsPage settings={settings} onSave={saveSettings} />}
           {page === 'achievements' && <AchievementsPage data={ach} target={route[1]} />}
@@ -478,7 +478,7 @@ export default function App() {
           key={drawer.key}
           task={drawer.task}
           live={drawer.task.id ? tasks.find((t) => t.id === drawer.task.id) : undefined}
-          features={features}
+          projects={projects}
           settings={settings}
           templates={templates}
           templatesOpen={!!tplModal}
@@ -492,7 +492,7 @@ export default function App() {
       )}
       {tplModal && (
         <TemplatesModal
-          spec={tplModal} templates={templates} features={features}
+          spec={tplModal} templates={templates} projects={projects}
           onCreate={createTemplate} onUpdate={updateTemplate} onDelete={deleteTemplate}
           onClose={() => setTplModal(null)}
         />

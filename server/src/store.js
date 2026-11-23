@@ -29,7 +29,7 @@ export class HttpError extends Error {
 const now = () => new Date().toISOString();
 
 export const TASK_FIELDS = [
-  'title', 'feature', 'priority', 'est', 'due', 'status', 'desc', 'desc_html', 'subtasks', 'claude_model', 'claude_effort', 'repo_path',
+  'title', 'project', 'priority', 'est', 'due', 'status', 'desc', 'desc_html', 'subtasks', 'claude_model', 'claude_effort', 'repo_path',
 ];
 
 export const FILE_MAX_BYTES = 10 * 1024 * 1024;
@@ -53,7 +53,7 @@ function parseTask(row) {
   return { ...row, subtasks: JSON.parse(row.subtasks || '[]') };
 }
 
-function parseFeature(row) {
+function parseProject(row) {
   if (!row) return row;
   return { ...row, completed: !!row.completed };
 }
@@ -85,9 +85,9 @@ function cleanTaskFields(f) {
         if (typeof v !== 'string' || !v.trim()) throw new HttpError(400, 'title must be non-empty text');
         out.title = v.trim();
         break;
-      case 'feature':
-        if (typeof v !== 'string' || !v) throw new HttpError(400, 'feature must be a feature id');
-        out.feature = v;
+      case 'project':
+        if (typeof v !== 'string' || !v) throw new HttpError(400, 'project must be a project id');
+        out.project = v;
         break;
       case 'priority':
         if (!Number.isInteger(v) || v < 1 || v > 9) throw new HttpError(400, 'priority must be a whole number 1–9');
@@ -150,30 +150,30 @@ export function createStore(db, { cliPath = '' } = {}) {
   }
   function logStatus(task, from) {
     logActivity('task_status', task.id, {
-      task: task.id, from, to: task.status, est: task.est, due: task.due, priority: task.priority, feature: task.feature,
+      task: task.id, from, to: task.status, est: task.est, due: task.due, priority: task.priority, project: task.project,
       subs_total: task.subtasks.length, subs_done: task.subtasks.filter((s) => s.done).length,
     });
   }
 
-  // ---- features ------------------------------------------------------------
-  const getFeature = (id) => parseFeature(q('SELECT * FROM features WHERE id = ?').get(id));
-  function listFeatures() {
-    return q('SELECT * FROM features ORDER BY sort_order').all().map(parseFeature);
+  // ---- projects ------------------------------------------------------------
+  const getProject = (id) => parseProject(q('SELECT * FROM projects WHERE id = ?').get(id));
+  function listProjects() {
+    return q('SELECT * FROM projects ORDER BY sort_order').all().map(parseProject);
   }
-  function createFeature(body) {
+  function createProject(body) {
     const { name, color } = body ?? {};
     if (typeof name !== 'string' || !name.trim() || typeof color !== 'string' || !color) {
       throw new HttpError(400, 'name and color required');
     }
-    const id = genId('f-');
-    const order = q('SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM features').get().n;
-    q(`INSERT INTO features (id, name, color, sort_order, skin, claude_model, claude_effort, repo_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+    const id = genId('p-');
+    const order = q('SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM projects').get().n;
+    q(`INSERT INTO projects (id, name, color, sort_order, skin, claude_model, claude_effort, repo_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
       .run(id, name.trim(), color, order, cleanSkin(body.skin), cleanModel(body.claude_model), cleanEffort(body.claude_effort),
         cleanRepoPath(body.repo_path));
-    return getFeature(id);
+    return getProject(id);
   }
-  function updateFeature(id, body) {
-    if (!getFeature(id)) throw new HttpError(404, 'feature not found');
+  function updateProject(id, body) {
+    if (!getProject(id)) throw new HttpError(404, 'project not found');
     const set = {};
     if ('name' in body) {
       if (typeof body.name !== 'string' || !body.name.trim()) throw new HttpError(400, 'name must be non-empty');
@@ -191,12 +191,12 @@ export function createStore(db, { cliPath = '' } = {}) {
     if ('repo_path' in body) set.repo_path = cleanRepoPath(body.repo_path);
     const keys = Object.keys(set);
     if (keys.length) {
-      q(`UPDATE features SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).run(...keys.map((k) => set[k]), id);
+      q(`UPDATE projects SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).run(...keys.map((k) => set[k]), id);
     }
-    return getFeature(id);
+    return getProject(id);
   }
-  function deleteFeature(id) {
-    q('DELETE FROM features WHERE id = ?').run(id);
+  function deleteProject(id) {
+    q('DELETE FROM projects WHERE id = ?').run(id);
   }
 
   // ---- files -------------------------------------------------------------
@@ -253,17 +253,17 @@ export function createStore(db, { cliPath = '' } = {}) {
   }
 
   // ---- meeting notes -------------------------------------------------------
-  const NOTE_FIELDS = ['title', 'meeting_date', 'feature_id', 'body_html', 'transcript'];
+  const NOTE_FIELDS = ['title', 'meeting_date', 'project_id', 'body_html', 'transcript'];
   function cleanNoteFields(body) {
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new HttpError(400, 'body must be an object');
     const out = {};
     for (const k of NOTE_FIELDS) {
       if (!(k in body)) continue;
       const v = body[k];
-      if (k === 'feature_id') {
-        if (v === null || v === '') out.feature_id = null;
-        else if (typeof v !== 'string' || !getFeature(v)) throw new HttpError(400, 'feature_id must be a feature id or null');
-        else out.feature_id = v;
+      if (k === 'project_id') {
+        if (v === null || v === '') out.project_id = null;
+        else if (typeof v !== 'string' || !getProject(v)) throw new HttpError(400, 'project_id must be a project id or null');
+        else out.project_id = v;
       } else if (k === 'meeting_date') {
         if (!isRealDate(v)) throw new HttpError(400, 'meeting_date must be a real YYYY-MM-DD date');
         out.meeting_date = v;
@@ -278,22 +278,22 @@ export function createStore(db, { cliPath = '' } = {}) {
   function getNote(id) {
     const n = q('SELECT * FROM notes WHERE id = ?').get(id);
     if (!n) throw new HttpError(404, 'note not found');
-    const feature = n.feature_id ? getFeature(n.feature_id) : null;
-    return { ...n, feature_name: feature?.name ?? null, actions: countActions(n.body_html) };
+    const project = n.project_id ? getProject(n.project_id) : null;
+    return { ...n, project_name: project?.name ?? null, actions: countActions(n.body_html) };
   }
   function listNotes(query = {}) {
     const pick = (k) => (typeof query[k] === 'string' && query[k] ? query[k] : undefined);
     return searchNotes(q('SELECT * FROM notes').all(), {
-      q: pick('q'), from: pick('from'), to: pick('to'), feature: pick('feature'), today: localDate(),
+      q: pick('q'), from: pick('from'), to: pick('to'), project: pick('project'), today: localDate(),
     });
   }
   function createNote(body) {
     const f = cleanNoteFields(body ?? {});
     const id = genId('n');
     const ts = now();
-    q(`INSERT INTO notes (id, title, meeting_date, feature_id, body_html, body_text, transcript, created_at, updated_at)
+    q(`INSERT INTO notes (id, title, meeting_date, project_id, body_html, body_text, transcript, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      id, f.title || 'Untitled meeting', f.meeting_date ?? localDate(), f.feature_id ?? null,
+      id, f.title || 'Untitled meeting', f.meeting_date ?? localDate(), f.project_id ?? null,
       f.body_html ?? '', f.body_text ?? '', f.transcript ?? '', ts, ts,
     );
     return getNote(id);
@@ -364,20 +364,20 @@ export function createStore(db, { cliPath = '' } = {}) {
     const files = filesByTask();
     return q('SELECT * FROM tasks ORDER BY sort_order').all().map((r) => ({ ...parseTask(r), files: files.get(r.id) ?? [] }));
   }
-  function requireFeature(id) {
-    if (!getFeature(id)) throw new HttpError(400, 'feature not found');
+  function requireProject(id) {
+    if (!getProject(id)) throw new HttpError(400, 'project not found');
   }
 
   function createTask(t) {
-    if (!t || typeof t.title !== 'string' || !t.title.trim() || !t.feature) throw new HttpError(400, 'title and feature required');
+    if (!t || typeof t.title !== 'string' || !t.title.trim() || !t.project) throw new HttpError(400, 'title and project required');
     const f = cleanTaskFields(t);
-    requireFeature(f.feature);
+    requireProject(f.project);
     const status = f.status ?? 'backlog';
     const ts = now();
     const task = {
       id: genId('t'),
       title: f.title,
-      feature: f.feature,
+      project: f.project,
       priority: f.priority ?? 3,
       est: f.est ?? cleanDefaultEst(getSettings().default_est),
       due: f.due ?? null,
@@ -393,10 +393,10 @@ export function createStore(db, { cliPath = '' } = {}) {
       claude_effort: f.claude_effort ?? null,
       repo_path: f.repo_path ?? null,
     };
-    q(`INSERT INTO tasks (id, title, feature, priority, est, due, status, "desc", desc_html, subtasks, sort_order,
+    q(`INSERT INTO tasks (id, title, project, priority, est, due, status, "desc", desc_html, subtasks, sort_order,
         created_at, started_at, completed_at, claude_model, claude_effort, repo_path)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      task.id, task.title, task.feature, task.priority, task.est, task.due, task.status, task.desc, task.desc_html,
+      task.id, task.title, task.project, task.priority, task.est, task.due, task.status, task.desc, task.desc_html,
       JSON.stringify(task.subtasks), task.sort_order, task.created_at, task.started_at, task.completed_at,
       task.claude_model, task.claude_effort, task.repo_path,
     );
@@ -409,7 +409,7 @@ export function createStore(db, { cliPath = '' } = {}) {
     if (!fields || typeof fields !== 'object') throw new HttpError(400, 'body must be an object');
     const cur = requireTask(id);
     const next = cleanTaskFields(fields);
-    if (next.feature) requireFeature(next.feature);
+    if (next.project) requireProject(next.project);
     const ts = now();
     const from = cur.status;
     const to = next.status ?? from;
@@ -490,22 +490,22 @@ export function createStore(db, { cliPath = '' } = {}) {
   /** What a Claude session reads: everything but desc_html, plus how to report. */
   function agentView(id) {
     const t = requireTask(id);
-    const feature = getFeature(t.feature);
+    const project = getProject(t.project);
     const { desc_html: _omit, ...rest } = t;
-    const title = sessionTitle(t, feature?.name);
-    const setup = claudeSetup(t, feature);
+    const title = sessionTitle(t, project?.name);
+    const setup = claudeSetup(t, project);
     const settings = getSettings();
     return {
       ...rest,
-      feature_name: feature?.name ?? null,
+      project_name: project?.name ?? null,
       user_name: settings.user_name?.trim() || null,
       files: filesFor(id),
       session_title: title,
       claude_setup: setup,
       setup_label: setupLabel(setup),
-      repo_path: resolveRepo(t, feature),
+      repo_path: resolveRepo(t, project),
       task_repo_path: t.repo_path ?? null,
-      claude_prompt: claudePrompt(t, cliPath, feature?.name),
+      claude_prompt: claudePrompt(t, cliPath, project?.name),
       how_to_report: agentRules({ cli: `node "${cliPath}"`, id, title }),
     };
   }
@@ -517,7 +517,7 @@ export function createStore(db, { cliPath = '' } = {}) {
     updateTask(id, { status: 'claude' });
     const v = agentView(id);
     return {
-      task_id: v.id, title: v.title, feature_name: v.feature_name, prompt: v.claude_prompt, session_title: v.session_title,
+      task_id: v.id, title: v.title, project_name: v.project_name, prompt: v.claude_prompt, session_title: v.session_title,
       setup_label: v.setup_label, model: v.claude_setup.model, effort: v.claude_setup.effort, repo_path: v.repo_path,
       was_in_claude: before.status === 'claude', had_report: !!before.agent_report, file_ids: hadFiles.map((f) => f.id),
     };
@@ -525,11 +525,11 @@ export function createStore(db, { cliPath = '' } = {}) {
 
   function agentStatus() {
     const files = filesByTask();
-    const features = new Map(listFeatures().map((f) => [f.id, f.name]));
+    const projects = new Map(listProjects().map((f) => [f.id, f.name]));
     const tasks = q("SELECT * FROM tasks WHERE status = 'claude' OR agent_state IS NOT NULL").all().map((r) => {
       const t = parseTask(r);
       return {
-        id: t.id, title: t.title, feature_name: features.get(t.feature) ?? null, status: t.status,
+        id: t.id, title: t.title, project_name: projects.get(t.project) ?? null, status: t.status,
         agent_state: t.agent_state, agent_note: t.agent_note, agent_at: t.agent_at, agent_report: t.agent_report,
         subtasks: t.subtasks, files: files.get(t.id) ?? [],
       };
@@ -545,7 +545,7 @@ export function createStore(db, { cliPath = '' } = {}) {
   function checkTemplate(body, partial) {
     const { value, error } = validateTemplate(body, { partial });
     if (error) throw new HttpError(400, error);
-    if (value.fields?.feature) requireFeature(value.fields.feature);
+    if (value.fields?.project) requireProject(value.fields.project);
     return value;
   }
   function createTemplate(body) {
@@ -575,12 +575,12 @@ export function createStore(db, { cliPath = '' } = {}) {
   }
 
   function getState() {
-    return { features: listFeatures(), tasks: listTasks(), settings: getSettings(), templates: listTemplates() };
+    return { projects: listProjects(), tasks: listTasks(), settings: getSettings(), templates: listTemplates() };
   }
 
   return {
     db, getSettings, patchSettings, logActivity, activity,
-    listFeatures, getFeature, createFeature, updateFeature, deleteFeature,
+    listProjects, getProject, createProject, updateProject, deleteProject,
     listTasks, getTaskRow, createTask, updateTask, deleteTask,
     filesFor, linkFile, deleteFile, fileContent,
     saveImage, imageContent, taskImages, uploadReportImage,

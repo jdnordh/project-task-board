@@ -4,16 +4,16 @@
  */
 
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
-import type { ColumnId, Feature, Settings, Task } from '../types'
+import type { ColumnId, Project, Settings, Task } from '../types'
 import { COLUMNS, columnLabel, fmtHours, sortColumn, boardTasks } from '../lib'
 import { Icon } from '../components/Icon'
 import { Button, PageHeader } from '../components/ui'
 import { Card } from '../components/Card'
-import { FeatureFilter } from '../components/FeatureFilter'
+import { ProjectFilter } from '../components/ProjectFilter'
 
 export interface BoardPageProps {
   tasks: Task[]
-  features: Feature[]
+  projects: Project[]
   settings: Settings
   search: string
   onMove: (id: string, status: ColumnId) => void
@@ -33,7 +33,7 @@ function accentFor(id: string) {
   return 'var(--fg-3)'
 }
 
-export function BoardPage({ tasks, features, settings, search, onMove, onOpen, onNew, onCopyPrompt, onSaveSettings, onOpenTemplates }: BoardPageProps) {
+export function BoardPage({ tasks, projects, settings, search, onMove, onOpen, onNew, onCopyPrompt, onSaveSettings, onOpenTemplates }: BoardPageProps) {
   const [filter, setFilter] = useState<string[]>([])
   const [dragId, setDragId] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<string | null>(null)
@@ -60,15 +60,15 @@ export function BoardPage({ tasks, features, settings, search, onMove, onOpen, o
     return () => ro.disconnect()
   }, [openCount])
 
-  const featureById = useMemo(() => new Map(features.map((f) => [f.id, f])), [features])
+  const projectById = useMemo(() => new Map(projects.map((f) => [f.id, f])), [projects])
   const now = new Date()
   const onBoard = boardTasks(tasks, { now })
-  const visible = boardTasks(tasks, { search, featureFilter: filter, now })
+  const visible = boardTasks(tasks, { search, projectFilter: filter, now })
   const filtered = !!search.trim() || filter.length > 0
   const blockedHidden = tasks.filter((t) => t.status === 'blocked').length
-  const featureCounts = useMemo(() => {
+  const projectCounts = useMemo(() => {
     const m = new Map<string, number>()
-    for (const t of onBoard) m.set(t.feature, (m.get(t.feature) ?? 0) + 1)
+    for (const t of onBoard) m.set(t.project, (m.get(t.project) ?? 0) + 1)
     return m
   }, [onBoard])
 
@@ -110,7 +110,7 @@ export function BoardPage({ tasks, features, settings, search, onMove, onOpen, o
           <Button variant="outline" size="sm" icon="layout-template" onClick={onOpenTemplates}>Templates</Button>
         </>}
       />
-      <FeatureFilter features={features} counts={featureCounts} value={filter} onChange={setFilter} />
+      <ProjectFilter projects={projects} counts={projectCounts} value={filter} onChange={setFilter} />
 
       <div ref={gridRef} style={{ display: 'grid', gridTemplateColumns: gridTemplate, gap: compact ? 8 : 14, alignItems: 'stretch', flex: 1 }}>
         {columns.map((col) => {
@@ -170,7 +170,7 @@ export function BoardPage({ tasks, features, settings, search, onMove, onOpen, o
                   }}>{over ? 'Drop here' : 'No tasks'}</div>
                 )}
                 {list.map((t) => (
-                  <Card key={t.id} task={t} feature={featureById.get(t.feature)} compact={compact} dragging={dragId === t.id}
+                  <Card key={t.id} task={t} project={projectById.get(t.project)} compact={compact} dragging={dragId === t.id}
                     onOpen={() => onOpen(t)} onCopy={() => onCopyPrompt(t)}
                     onDragStart={(e) => {
                       e.dataTransfer.effectAllowed = 'move'

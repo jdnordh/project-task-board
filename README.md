@@ -19,6 +19,8 @@ Register the MCP server once, at user scope, so it works from any folder:
 claude mcp add --scope user grove-agent -- node <repo>/server/mcp/agent-server.js
 ```
 
+Besides the worker tools, `grove-agent` can read and change the whole board: `list_projects`, `get_project`, `create_project`, `update_project`, `delete_project`, `list_tasks`, `get_task`, `create_task`, `update_task`, `delete_task`.
+
 Sessions without the tools can use the CLI: `node scripts/grove.js task <id>` (also `task-status`, `task-subtask`, `task-report`, `task-file`).
 
 ## Scripts

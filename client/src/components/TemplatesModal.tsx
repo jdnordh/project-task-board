@@ -6,12 +6,12 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import type { ColumnId, DueRule, Effort, Feature, ModelId, Subtask, Template, TemplateFields } from '../types'
+import type { ColumnId, DueRule, Effort, Project, ModelId, Subtask, Template, TemplateFields } from '../types'
 import { COLUMNS, CLAUDE_MODELS, CLAUDE_EFFORTS, templateSummary } from '../lib'
 import { Icon } from './Icon'
 import { Button, ConfirmDialog, IconButton, Stepper, Toggle, capStyle, type ConfirmSpec } from './ui'
 import { NotesEditor } from './NotesEditor'
-import { FeaturePicker } from './FeaturePicker'
+import { ProjectPicker } from './ProjectPicker'
 
 export interface TemplatesModalSpec {
   prefill?: { name: string; fields: TemplateFields }
@@ -21,19 +21,19 @@ export interface TemplatesModalSpec {
 export interface TemplatesModalProps {
   spec: TemplatesModalSpec
   templates: Template[]
-  features: Feature[]
+  projects: Project[]
   onCreate: (name: string, fields: TemplateFields) => Promise<Template>
   onUpdate: (id: string, name: string, fields: TemplateFields) => Promise<Template>
   onDelete: (id: string) => Promise<void>
   onClose: () => void
 }
 
-type PartKey = 'title' | 'feature' | 'status' | 'priority' | 'est' | 'due' | 'desc_html' | 'subtasks' | 'claude_model' | 'claude_effort'
-const PARTS: PartKey[] = ['title', 'feature', 'status', 'priority', 'est', 'due', 'desc_html', 'subtasks', 'claude_model', 'claude_effort']
+type PartKey = 'title' | 'project' | 'status' | 'priority' | 'est' | 'due' | 'desc_html' | 'subtasks' | 'claude_model' | 'claude_effort'
+const PARTS: PartKey[] = ['title', 'project', 'status', 'priority', 'est', 'due', 'desc_html', 'subtasks', 'claude_model', 'claude_effort']
 
 interface Values {
   title: string
-  feature: string
+  project: string
   status: ColumnId
   priority: number
   est: number
@@ -55,12 +55,12 @@ interface Form {
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
 
-function formFrom(id: string | null, name: string, f: TemplateFields, features: Feature[]): Form {
+function formFrom(id: string | null, name: string, f: TemplateFields, projects: Project[]): Form {
   const on = Object.fromEntries(PARTS.map((k) => [k, f[k] !== undefined])) as Record<PartKey, boolean>
   return {
     id, name, on, editorKey: Date.now(),
     v: {
-      title: f.title ?? '', feature: f.feature ?? features.find((x) => !x.completed)?.id ?? '', status: f.status ?? 'backlog',
+      title: f.title ?? '', project: f.project ?? projects.find((x) => !x.completed)?.id ?? '', status: f.status ?? 'backlog',
       priority: f.priority ?? 2, est: f.est ?? 1, due: f.due ?? { kind: 'eow' }, dueDays: f.due?.kind === 'days' ? f.due.n : 7,
       desc_html: f.desc_html ?? '', subtasks: f.subtasks ?? [], claude_model: f.claude_model ?? 'sonnet', claude_effort: f.claude_effort ?? 'high',
     },
@@ -71,7 +71,7 @@ function fieldsOf(form: Form): TemplateFields {
   const f: TemplateFields = {}
   const { on, v } = form
   if (on.title && v.title.trim()) f.title = v.title.trim()
-  if (on.feature && v.feature) f.feature = v.feature
+  if (on.project && v.project) f.project = v.project
   if (on.status) f.status = v.status
   if (on.priority) f.priority = v.priority
   if (on.est) f.est = v.est
@@ -85,11 +85,11 @@ function fieldsOf(form: Form): TemplateFields {
 
 const sig = (form: Form | null) => (form ? JSON.stringify({ n: form.name.trim(), f: fieldsOf(form) }) : '')
 
-export function TemplatesModal({ spec, templates, features, onCreate, onUpdate, onDelete, onClose }: TemplatesModalProps) {
+export function TemplatesModal({ spec, templates, projects, onCreate, onUpdate, onDelete, onClose }: TemplatesModalProps) {
   const initial = useMemo(() => {
-    if (spec.prefill) return formFrom(null, spec.prefill.name, spec.prefill.fields, features)
+    if (spec.prefill) return formFrom(null, spec.prefill.name, spec.prefill.fields, projects)
     const t = templates.find((x) => x.id === spec.selectId) ?? [...templates].sort((a, b) => a.name.localeCompare(b.name))[0]
-    return t ? formFrom(t.id, t.name, t.fields, features) : formFrom(null, '', {}, features)
+    return t ? formFrom(t.id, t.name, t.fields, projects) : formFrom(null, '', {}, projects)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const [form, setForm] = useState<Form>(initial)
@@ -109,7 +109,7 @@ export function TemplatesModal({ spec, templates, features, onCreate, onUpdate, 
     setConfirm({ title: 'Discard changes?', body: 'You have unsaved edits to this template. Leaving now will lose them.', confirm: 'Discard changes', danger: true, onConfirm: fn })
   }
   const pick = (t: Template | null) => guard(() => {
-    const next = t ? formFrom(t.id, t.name, t.fields, features) : formFrom(null, '', {}, features)
+    const next = t ? formFrom(t.id, t.name, t.fields, projects) : formFrom(null, '', {}, projects)
     setForm(next)
     setBaseline(t ? sig(next) : '')
     setError('')
@@ -141,7 +141,7 @@ export function TemplatesModal({ spec, templates, features, onCreate, onUpdate, 
     title: `Delete “${form.name}”?`, body: 'The template is deleted. Tasks made from it stay as they are.', confirm: 'Delete template', danger: true,
     onConfirm: async () => {
       await onDelete(form.id!)
-      const empty = formFrom(null, '', {}, features)
+      const empty = formFrom(null, '', {}, projects)
       setForm(empty)
       setBaseline('')
     },
@@ -206,7 +206,7 @@ export function TemplatesModal({ spec, templates, features, onCreate, onUpdate, 
                     }}>
                     <div style={{ fontSize: 13.5, fontWeight: 650, color: 'var(--fg-1)' }}>{t.name}</div>
                     <div style={{ fontSize: 11.5, color: 'var(--fg-3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {templateSummary(t.fields, features) || 'Empty template'}
+                      {templateSummary(t.fields, projects) || 'Empty template'}
                     </div>
                   </button>
                 )
@@ -221,7 +221,7 @@ export function TemplatesModal({ spec, templates, features, onCreate, onUpdate, 
                 onChange={(e) => { setForm((f) => ({ ...f, name: e.target.value })); setError('') }} style={{ fontSize: 15, fontWeight: 650 }} />
             </label>
             {part('title', 'Task title', <input className="g-input" value={form.v.title} maxLength={200} onChange={(e) => setV('title', e.target.value)} placeholder="Title the task starts with" />)}
-            {part('feature', 'Feature', <FeaturePicker features={features} value={form.v.feature} onChange={(id) => setV('feature', id)} />)}
+            {part('project', 'Project', <ProjectPicker projects={projects} value={form.v.project} onChange={(id) => setV('project', id)} />)}
             {part('status', 'Status', (
               <select className="g-input" value={form.v.status} onChange={(e) => setV('status', e.target.value as ColumnId)}>
                 {COLUMNS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
@@ -252,12 +252,12 @@ export function TemplatesModal({ spec, templates, features, onCreate, onUpdate, 
                 <select className="g-input" value={form.v.claude_model} onChange={(e) => setV('claude_model', e.target.value as ModelId)}>
                   {CLAUDE_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
                 </select>
-              ), "Used instead of the feature's.")}
+              ), "Used instead of the project's.")}
               {part('claude_effort', 'Claude effort', (
                 <select className="g-input" value={form.v.claude_effort} onChange={(e) => setV('claude_effort', e.target.value as Effort)}>
                   {CLAUDE_EFFORTS.map((x) => <option key={x} value={x}>{x}</option>)}
                 </select>
-              ), "Used instead of the feature's.")}
+              ), "Used instead of the project's.")}
             </div>
           </div>
         </div>

@@ -112,6 +112,15 @@
 
 ---
 
+## [ADR-012] Features are now projects; the MCP covers the whole board
+- **Date:** 2026-11-23
+- **Status:** Decided
+- **Context:** Jordan asked for "features" to be called "projects", and for Claude sessions to read and write every task and project through the MCP, with every later feature exposed there too.
+- **Decision:** Rename everywhere: UI text, types, `/api/projects`, task field `project`, note field `project_id`, DB table `projects`. `openDb` renames an older database in place before creating the schema (table, columns, the `feature` key in activity-log and template JSON, and the `route`, `lastTaskFeature` and `hidden_pages` settings). Old ids (`f-…`) stay valid; new ones start `p-`. Project and task CRUD tools live in `server/mcp/board-tools.js`, registered by both `grove-agent` and `grove-buddy`. CLAUDE.md now requires MCP tools for every new feature.
+- **Consequences:** Clients of the old `/api/features` routes must move to `/api/projects` (the app, CLI and MCP servers in this repo already have). Workers on `grove-agent` can change any card, so its instructions say to touch other tasks only when the user asks.
+
+---
+
 <!-- Copy the block above for each new ADR. Number sequentially. -->
 <!-- Interpolated decisions are marked: *(interpolated from Jordan's patterns)* in the Rationale field. -->
 <!-- Status values: Decided (final), Proposed (pending Jordan's approval), Superseded (replaced by a later ADR) -->

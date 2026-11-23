@@ -127,7 +127,7 @@ export function SettingsPage({ settings, onSave }: Props) {
             onChange={(v) => onSave({ default_est: String(v) })} />} />
       </Section>
 
-      <Section title="Repos" subtitle="Grove lists the git repos directly inside this folder, so features and tasks can say where Buddy's workers run.">
+      <Section title="Repos" subtitle="Grove lists the git repos directly inside this folder, so projects and tasks can say where Buddy's workers run.">
         <Row icon="folder-git-2" label="Repos base folder"
           sub="The folder that holds your repos. Only its direct subfolders are checked."
           control={<ReposBase value={settings.repos_base ?? ''} onSave={(v) => onSave({ repos_base: v })} />} />
@@ -150,7 +150,7 @@ export function SettingsPage({ settings, onSave }: Props) {
 
       <Section title="Extras" subtitle="Fun extras, off by default. Turning them off hides them again and keeps everything you earned.">
         <Row icon="trophy" label="Enable Extras"
-          sub={<>Animated feature skins, the Achievements page, and camos you unlock with achievement points.<br />Off: skinned features show their plain colour. Nothing is lost.</>}
+          sub={<>Animated project skins, the Achievements page, and camos you unlock with achievement points.<br />Off: skinned projects show their plain colour. Nothing is lost.</>}
           control={<Toggle on={extras} label="Enable Extras" onChange={(v) => onSave({ extras: String(v) })} />} />
       </Section>
     </div>

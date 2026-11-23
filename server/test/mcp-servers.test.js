@@ -16,15 +16,19 @@ async function toolsOf(file) {
   }
 }
 
-test('grove-agent lists the worker, image and note tools', async () => {
+const BOARD = ['list_projects', 'get_project', 'create_project', 'update_project', 'delete_project',
+  'list_tasks', 'get_task', 'create_task', 'update_task', 'delete_task'];
+
+test('grove-agent lists the board, worker, image and note tools', async () => {
   const tools = await toolsOf('agent-server.js');
-  for (const n of ['get_task', 'set_task_status', 'check_subtask', 'set_task_report', 'link_task_file',
+  for (const n of [...BOARD, 'set_task_status', 'check_subtask', 'set_task_report', 'link_task_file',
     'get_task_images', 'upload_report_image', 'search_meeting_notes', 'get_meeting_note']) assert.ok(tools[n], n);
 });
 
-test('grove-buddy lists the read and Buddy tools; create_task refuses unknown fields', async () => {
+test('grove-buddy lists the board and Buddy tools; write tools refuse unknown fields', async () => {
   const tools = await toolsOf('buddy-server.js');
-  for (const n of ['get_profile', 'list_features', 'list_tasks', 'get_task', 'search_meeting_notes', 'get_meeting_note',
-    'create_task', 'delegate_task', 'list_claude_tasks', 'read_task_file']) assert.ok(tools[n], n);
-  assert.equal(tools.create_task.inputSchema.additionalProperties, false);
+  for (const n of [...BOARD, 'get_profile', 'search_meeting_notes', 'get_meeting_note', 'delegate_task', 'list_claude_tasks', 'read_task_file']) assert.ok(tools[n], n);
+  for (const n of ['create_task', 'update_task', 'create_project', 'update_project']) {
+    assert.equal(tools[n].inputSchema.additionalProperties, false, n);
+  }
 });

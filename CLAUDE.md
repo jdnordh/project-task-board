@@ -4,7 +4,9 @@ Grove — local single-user kanban board with a Claude column. Node + Express + 
 
 - Pure rule modules live in `server/src/lib/` (no I/O) and are shared with the client via `client/src/lib.ts`. Put new rules there and test them with `npm test`.
 - Claude sessions report via the `grove-agent` MCP server (`server/mcp/agent-server.js`) or `scripts/grove.js`; both use the REST API, never SQLite.
-- Buddy (`.claude/skills/buddy/`, the foreman skill) uses the `grove-buddy` MCP server (`server/mcp/buddy-server.js`, registered in `.mcp.json`) to plan, create and delegate tasks to worker sessions in each feature's git repo.
+- **Every feature must be reachable through the MCP.** Any change that adds or changes something a user can see or do in Grove (a page, an entity, a field, an action) ships MCP tools for it in the same change: reads and writes, in `server/mcp/board-tools.js` or a sibling module registered by both `agent-server.js` and `buddy-server.js`. Back each tool with a REST route (never SQLite), put its input rules in `server/src/lib/`, and add a test that drives the tool (see `server/test/board-tools.test.js`) plus its name in `server/test/mcp-servers.test.js`. A PR without the MCP side is not done.
+- "Projects" were called "features" before 2026-11. `db.js` renames old databases on open (`renameFeaturesToProjects`); use "project" for new code, UI text and MCP tools.
+- Buddy (`.claude/skills/buddy/`, the foreman skill) uses the `grove-buddy` MCP server (`server/mcp/buddy-server.js`, registered in `.mcp.json`) to plan, create and delegate tasks to worker sessions in each project's git repo.
 - `npm run dev` · `npm test` · `npm run typecheck` · `npm run feedback`
 
 ## Key Docs

@@ -1,13 +1,13 @@
 /**
- * Card — one board card: feature line, title, meta row, then (by column)
+ * Card — one board card: project line, title, meta row, then (by column)
  * the agent badge, linked files and the Done delta.
  */
 
 import type { CSSProperties, DragEvent, KeyboardEvent } from 'react'
-import type { Feature, Task } from '../types'
+import type { Project, Task } from '../types'
 import { Icon } from './Icon'
 import { PriorityBadge } from './ui'
-import { FeatureDot, FeatureStripe } from './skin'
+import { ProjectDot, ProjectStripe } from './skin'
 import { SkinBackdrop, useSkin } from '../extras/skins'
 import { DENSITY, dueTone, fmtAge, fmtDue, fmtDuration, fmtHours } from '../lib'
 
@@ -69,7 +69,7 @@ function DoneDelta({ task }: { task: Task }) {
 
 interface CardProps {
   task: Task
-  feature: Feature | undefined
+  project: Project | undefined
   compact: boolean
   dragging: boolean
   onOpen: () => void
@@ -78,21 +78,21 @@ interface CardProps {
   onDragEnd: () => void
 }
 
-export function Card({ task, feature, compact, dragging, onOpen, onCopy, onDragStart, onDragEnd }: CardProps) {
+export function Card({ task, project, compact, dragging, onOpen, onCopy, onDragStart, onDragEnd }: CardProps) {
   const d = DENSITY
-  const color = feature?.color ?? 'var(--fg-3)'
+  const color = project?.color ?? 'var(--fg-3)'
   const subsDone = task.subtasks.filter((s) => s.done).length
   const allDone = task.subtasks.length > 0 && subsDone === task.subtasks.length
   const pad = compact ? 10 : d.pad
   const isDone = task.status === 'done'
 
-  const skin = useSkin(feature?.skin)
+  const skin = useSkin(project?.skin)
   const content = (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-        {feature && <FeatureDot feature={feature} size={7} />}
+        {project && <ProjectDot project={project} size={7} />}
         <span style={{ flex: 1, fontSize: d.meta, color: skin ? 'var(--fg-2)' : 'var(--fg-3)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {feature?.name ?? '—'}
+          {project?.name ?? '—'}
         </span>
         <PriorityBadge n={task.priority} />
       </div>
@@ -168,7 +168,7 @@ export function Card({ task, feature, compact, dragging, onOpen, onCopy, onDragS
         background: `linear-gradient(160deg, color-mix(in srgb, ${color} 9%, var(--bg-1)), color-mix(in srgb, ${color} 4%, var(--bg-1)))`,
         display: 'flex', flexDirection: 'column', gap: compact ? 8 : 10, outline: 'none',
       }}>
-      {feature && <FeatureStripe feature={feature} />}
+      {project && <ProjectStripe project={project} />}
       {content}
     </div>
   )
