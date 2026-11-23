@@ -1,19 +1,19 @@
 /**
  * NotesPage — meeting notes. `#/notes` is the list (date range, search,
- * feature filter); `#/notes/<id>` is one note with autosave and a list of
+ * project filter); `#/notes/<id>` is one note with autosave and a list of
  * open action items that can be promoted to tasks.
  *
  * Notes are not part of /api/state; this page loads them itself.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Feature, Note, NoteRow } from '../types'
+import type { Project, Note, NoteRow } from '../types'
 import { api } from '../api'
 import { localDate, shiftDate, openActions, NOTE_DEFAULT_DAYS } from '../lib'
 import { Icon } from '../components/Icon'
 import { Button, Field, IconButton, PageHeader, SectionLabel, type ConfirmSpec } from '../components/ui'
-import { FeatureDot } from '../components/skin'
-import { FeaturePicker } from '../components/FeaturePicker'
+import { ProjectDot } from '../components/skin'
+import { ProjectPicker } from '../components/ProjectPicker'
 import { NotesEditor } from '../components/NotesEditor'
 
 export const AUTOSAVE_MS = 1500
@@ -26,29 +26,29 @@ function navigate(...parts: string[]) {
 
 export interface PromoteSpec {
   title: string
-  feature: string
+  project: string
   desc: string
 }
 
 interface Props {
-  features: Feature[]
+  projects: Project[]
   noteId?: string
   onPromote: (spec: PromoteSpec) => Promise<void>
   onConfirm: (spec: ConfirmSpec) => void
 }
 
 export function NotesPage({ noteId, ...rest }: Props) {
-  return noteId ? <NoteDetail key={noteId} id={noteId} {...rest} /> : <NoteList features={rest.features} />
+  return noteId ? <NoteDetail key={noteId} id={noteId} {...rest} /> : <NoteList projects={rest.projects} />
 }
 
 // ---- list -------------------------------------------------------------------
 
-function NoteList({ features }: { features: Feature[] }) {
+function NoteList({ projects }: { projects: Project[] }) {
   const today = localDate()
   const [q, setQ] = useState('')
   const [from, setFrom] = useState(shiftDate(today, -NOTE_DEFAULT_DAYS))
   const [to, setTo] = useState(today)
-  const [feature, setFeature] = useState('')
+  const [project, setProject] = useState('')
   const [rows, setRows] = useState<NoteRow[] | null>(null)
   const [error, setError] = useState('')
 
@@ -63,18 +63,18 @@ function NoteList({ features }: { features: Feature[] }) {
       if (from) p.set('from', from)
       if (to) p.set('to', to)
     }
-    if (feature) p.set('feature', feature)
+    if (project) p.set('project', project)
     const timer = setTimeout(() => {
       api<NoteRow[]>('GET', `/api/notes?${p}`).then((r) => { setRows(r); setError('') }).catch((e) => setError(e.message))
     }, words ? 250 : 0)
     return () => clearTimeout(timer)
-  }, [q, from, to, feature, today])
+  }, [q, from, to, project, today])
 
   const create = async () => {
-    const n = await api<Note>('POST', '/api/notes', { feature_id: feature && feature !== 'none' ? feature : null })
+    const n = await api<Note>('POST', '/api/notes', { project_id: project && project !== 'none' ? project : null })
     navigate('notes', n.id)
   }
-  const byId = new Map(features.map((f) => [f.id, f]))
+  const byId = new Map(projects.map((f) => [f.id, f]))
 
   return (
     <div style={{ maxWidth: 900 }}>
@@ -90,10 +90,10 @@ function NoteList({ features }: { features: Feature[] }) {
         <input type="date" className="g-input" value={from} aria-label="From" onChange={(e) => setFrom(e.target.value)} style={{ width: 150 }} />
         <span style={{ color: 'var(--fg-3)', fontSize: 13 }}>to</span>
         <input type="date" className="g-input" value={to} aria-label="To" onChange={(e) => setTo(e.target.value)} style={{ width: 150 }} />
-        <select className="g-input" value={feature} aria-label="Feature" onChange={(e) => setFeature(e.target.value)} style={{ width: 170 }}>
-          <option value="">All features</option>
-          <option value="none">No feature</option>
-          {features.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+        <select className="g-input" value={project} aria-label="Project" onChange={(e) => setProject(e.target.value)} style={{ width: 170 }}>
+          <option value="">All projects</option>
+          <option value="none">No project</option>
+          {projects.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
         </select>
       </div>
       {q.trim() && <p style={{ margin: '0 0 10px', fontSize: 12.5, color: 'var(--fg-3)' }}>Search covers all dates unless you change the range.</p>}
@@ -106,7 +106,7 @@ function NoteList({ features }: { features: Feature[] }) {
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {rows?.map((n) => {
-          const f = n.feature_id ? byId.get(n.feature_id) : undefined
+          const f = n.project_id ? byId.get(n.project_id) : undefined
           return (
             <a key={n.id} href={`#/notes/${encodeURIComponent(n.id)}`} className="g-row-hover" style={{
               display: 'block', padding: '12px 16px', background: 'var(--bg-1)', border: '1px solid var(--border)',
@@ -115,7 +115,7 @@ function NoteList({ features }: { features: Feature[] }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--fg-3)', flexShrink: 0 }}>{n.meeting_date}</span>
                 <span style={{ fontWeight: 650, color: 'var(--fg-1)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.title}</span>
-                {f && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--fg-2)' }}><FeatureDot feature={f} size={8} />{f.name}</span>}
+                {f && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--fg-2)' }}><ProjectDot project={f} size={8} />{f.name}</span>}
                 {n.actions.total > 0 && (
                   <span title="Open action items" style={{
                     fontSize: 11.5, fontFamily: 'var(--font-mono)', padding: '2px 7px', borderRadius: 999,
@@ -135,9 +135,9 @@ function NoteList({ features }: { features: Feature[] }) {
 
 // ---- detail -----------------------------------------------------------------
 
-type Patch = Partial<Pick<Note, 'title' | 'meeting_date' | 'feature_id' | 'body_html' | 'transcript'>>
+type Patch = Partial<Pick<Note, 'title' | 'meeting_date' | 'project_id' | 'body_html' | 'transcript'>>
 
-function NoteDetail({ id, features, onPromote, onConfirm }: { id: string } & Omit<Props, 'noteId'>) {
+function NoteDetail({ id, projects, onPromote, onConfirm }: { id: string } & Omit<Props, 'noteId'>) {
   const [note, setNote] = useState<Note | null>(null)
   const [missing, setMissing] = useState(false)
   const [status, setStatus] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved')
@@ -168,7 +168,7 @@ function NoteDetail({ id, features, onPromote, onConfirm }: { id: string } & Omi
     }
     api<Note>('PATCH', `/api/notes/${encodeURIComponent(id)}`, body)
       .then((n) => {
-        setNote((cur) => (cur ? { ...cur, actions: n.actions, feature_name: n.feature_name, updated_at: n.updated_at } : n))
+        setNote((cur) => (cur ? { ...cur, actions: n.actions, project_name: n.project_name, updated_at: n.updated_at } : n))
         setStatus(Object.keys(pending.current).length ? 'unsaved' : 'saved')
       })
       .catch(() => { pending.current = { ...body, ...pending.current }; setStatus('error') })
@@ -207,9 +207,9 @@ function NoteDetail({ id, features, onPromote, onConfirm }: { id: string } & Omi
   if (!note) return <div style={{ color: 'var(--fg-3)' }}>Loading…</div>
 
   const items = openActions(note.body_html).filter((t) => !promoted.includes(t))
-  const promote = async (title: string, feature: string) => {
+  const promote = async (title: string, project: string) => {
     setPromoting(null)
-    await onPromote({ title, feature, desc: `From meeting note "${note.title}" (${note.meeting_date}): #/notes/${note.id}` })
+    await onPromote({ title, project, desc: `From meeting note "${note.title}" (${note.meeting_date}): #/notes/${note.id}` })
     setPromoted((p) => [...p, title])
   }
   const remove = () => onConfirm({
@@ -236,11 +236,11 @@ function NoteDetail({ id, features, onPromote, onConfirm }: { id: string } & Omi
             <input type="date" className="g-input" value={note.meeting_date} required
               onChange={(e) => { if (e.target.value) change({ meeting_date: e.target.value }, true) }} />
           </Field>
-          <Field label="Feature" right={note.feature_id ? (
-            <button type="button" className="g-btn" onClick={() => change({ feature_id: null }, true)}
+          <Field label="Project" right={note.project_id ? (
+            <button type="button" className="g-btn" onClick={() => change({ project_id: null }, true)}
               style={{ border: 'none', background: 'none', color: 'var(--fg-3)', fontSize: 12, cursor: 'pointer' }}>Clear</button>
           ) : undefined}>
-            <FeaturePicker features={features} value={note.feature_id ?? ''} onChange={(fid) => change({ feature_id: fid }, true)} />
+            <ProjectPicker projects={projects} value={note.project_id ?? ''} onChange={(fid) => change({ project_id: fid }, true)} />
           </Field>
         </div>
         <NotesEditor key={note.id} taskList initialHtml={note.body_html} minHeight={320}
@@ -270,12 +270,12 @@ function NoteDetail({ id, features, onPromote, onConfirm }: { id: string } & Omi
               <div style={{ fontSize: 13, color: 'var(--fg-1)', lineHeight: 1.4 }}>{t}</div>
               {promoting === t ? (
                 <div style={{ marginTop: 8 }}>
-                  <div style={{ fontSize: 12, color: 'var(--fg-3)', marginBottom: 4 }}>Every task needs a feature:</div>
-                  <FeaturePicker features={features} value="" onChange={(fid) => void promote(t, fid)} />
+                  <div style={{ fontSize: 12, color: 'var(--fg-3)', marginBottom: 4 }}>Every task needs a project:</div>
+                  <ProjectPicker projects={projects} value="" onChange={(fid) => void promote(t, fid)} />
                 </div>
               ) : (
                 <Button size="sm" icon="arrow-up-right" style={{ marginTop: 6 }}
-                  onClick={() => (note.feature_id ? void promote(t, note.feature_id) : setPromoting(t))}>Promote to task</Button>
+                  onClick={() => (note.project_id ? void promote(t, note.project_id) : setPromoting(t))}>Promote to task</Button>
               )}
             </div>
           ))}

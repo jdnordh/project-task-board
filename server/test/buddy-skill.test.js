@@ -15,7 +15,7 @@ test('SKILL.md is the buddy skill', () => {
 
 test('briefing sources run in file-name order and have every section', () => {
   const files = fs.readdirSync(path.join(SKILL, 'sources')).filter((f) => f.endsWith('.md')).sort();
-  assert.deepEqual(files.slice(0, 3), ['10-meetings.md', '20-unfinished.md', '30-features.md']);
+  assert.deepEqual(files.slice(0, 3), ['10-meetings.md', '20-unfinished.md', '30-projects.md']);
   for (const f of files) {
     const md = fs.readFileSync(path.join(SKILL, 'sources', f), 'utf8');
     for (const s of SECTIONS) assert.match(md, new RegExp(`^## ${s}\\s*$`, 'm'), `${f} is missing "## ${s}"`);

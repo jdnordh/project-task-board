@@ -4,7 +4,7 @@
  */
 
 import type { ReactNode } from 'react'
-import { FEATURE_PALETTE } from '../lib'
+import { PROJECT_PALETTE } from '../lib'
 import { Icon } from './Icon'
 
 export interface Pick {
@@ -31,11 +31,11 @@ export function Swatch({ selected, title, onClick, disabled, children, backgroun
 
 export function PaletteRow({ value, onPick }: { value: Pick; onPick: (p: Pick) => void }) {
   // A colour from before the palette (e.g. an imported project) stays pickable.
-  const custom = !value.skin && !FEATURE_PALETTE.some((p) => p.hex.toLowerCase() === value.color.toLowerCase())
+  const custom = !value.skin && !PROJECT_PALETTE.some((p) => p.hex.toLowerCase() === value.color.toLowerCase())
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
       {custom && <Swatch title="Current colour" background={value.color} selected onClick={() => {}} />}
-      {FEATURE_PALETTE.map((p) => (
+      {PROJECT_PALETTE.map((p) => (
         <Swatch key={p.id} title={p.name} background={p.hex}
           selected={!value.skin && value.color.toLowerCase() === p.hex.toLowerCase()}
           onClick={() => onPick({ color: p.hex, skin: null })} />

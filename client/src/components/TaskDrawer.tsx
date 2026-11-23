@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { createPortal } from 'react-dom'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import type { AgentState, ColumnId, Draft, Effort, Feature, ModelId, Settings, Task, Template } from '../types'
+import type { AgentState, ColumnId, Draft, Effort, Project, ModelId, Settings, Task, Template } from '../types'
 import {
   COLUMNS, CLAUDE_MODELS, CLAUDE_EFFORTS, NOTE_MAX, columnLabel, localDate, endOfWeek, applyTemplate, fieldsFromTask, fmtAge, textToHtml,
 } from '../lib'
@@ -16,7 +16,7 @@ import { Icon } from './Icon'
 import { Button, ConfirmDialog, Field, IconButton, Stepper, capStyle, type ConfirmSpec } from './ui'
 import { NotesEditor } from './NotesEditor'
 import { RepoPicker, repoName } from './RepoPicker'
-import { FeaturePicker } from './FeaturePicker'
+import { ProjectPicker } from './ProjectPicker'
 import { TemplatePicker } from './TemplatePicker'
 import { AGENT_META } from './Card'
 import type { TemplatesModalSpec } from './TemplatesModal'
@@ -25,7 +25,7 @@ import { SkinBackdrop, useSkin } from '../extras/skins'
 export interface TaskDrawerProps {
   task: Task | Draft
   live?: Task
-  features: Feature[]
+  projects: Project[]
   settings: Settings
   templates: Template[]
   templatesOpen: boolean
@@ -37,7 +37,7 @@ export interface TaskDrawerProps {
   onOpenTemplates: (spec: TemplatesModalSpec) => void
 }
 
-const DIRTY_KEYS = ['title', 'feature', 'priority', 'est', 'due', 'status', 'desc', 'desc_html', 'subtasks', 'agent_state', 'agent_note', 'claude_model', 'claude_effort', 'repo_path'] as const
+const DIRTY_KEYS = ['title', 'project', 'priority', 'est', 'due', 'status', 'desc', 'desc_html', 'subtasks', 'agent_state', 'agent_note', 'claude_model', 'claude_effort', 'repo_path'] as const
 
 function snapshot(d: Partial<Draft>) {
   return JSON.stringify(DIRTY_KEYS.map((k) => (d as Record<string, unknown>)[k] ?? null))
@@ -46,7 +46,7 @@ function snapshot(d: Partial<Draft>) {
 function toDraft(t: Task | Draft): Draft {
   const copy = JSON.parse(JSON.stringify(t)) as Task & Draft
   return {
-    id: copy.id, _new: copy._new, title: copy.title, feature: copy.feature, priority: copy.priority, est: copy.est, due: copy.due ?? null,
+    id: copy.id, _new: copy._new, title: copy.title, project: copy.project, priority: copy.priority, est: copy.est, due: copy.due ?? null,
     status: copy.status, desc: copy.desc ?? '', desc_html: copy.desc_html ?? '', subtasks: copy.subtasks ?? [],
     agent_state: copy.agent_state ?? null, agent_note: copy.agent_note ?? '', claude_model: copy.claude_model ?? null, claude_effort: copy.claude_effort ?? null,
     repo_path: copy.repo_path ?? null,
@@ -56,7 +56,7 @@ function toDraft(t: Task | Draft): Draft {
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
 
 export function TaskDrawer(props: TaskDrawerProps) {
-  const { task, live, features, settings, templates, templatesOpen, onSave, onDelete, onClose, onRemoveFile, onUseTemplate, onOpenTemplates } = props
+  const { task, live, projects, settings, templates, templatesOpen, onSave, onDelete, onClose, onRemoveFile, onUseTemplate, onOpenTemplates } = props
   const isNew = !task.id
   const original = useMemo(() => toDraft(task), [task])
   const [draft, setDraft] = useState<Draft>(original)
@@ -67,7 +67,7 @@ export function TaskDrawer(props: TaskDrawerProps) {
   const [duePick, setDuePick] = useState<'today' | 'eow' | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const feature = features.find((f) => f.id === draft.feature)
+  const project = projects.find((f) => f.id === draft.project)
   // Until the user touches subtasks, show the live list (Claude may tick them meanwhile).
   const subtasks = subsTouched ? draft.subtasks : live?.subtasks ?? draft.subtasks
   const dirty = snapshot({ ...draft, subtasks: subsTouched ? draft.subtasks : original.subtasks }) !== snapshot(original)
@@ -120,7 +120,7 @@ export function TaskDrawer(props: TaskDrawerProps) {
   }, [templatesOpen])
 
   const applyTpl = (t: Template) => {
-    setDraft((d) => applyTemplate({ ...d, subtasks: subsTouched ? d.subtasks : subtasks }, t.fields, { featureIds: features.map((f) => f.id) }))
+    setDraft((d) => applyTemplate({ ...d, subtasks: subsTouched ? d.subtasks : subtasks }, t.fields, { projectIds: projects.map((f) => f.id) }))
     if (t.fields.subtasks?.length) setSubsTouched(true)
     setEditorKey((k) => k + 1)
     if (t.fields.due) setDuePick(null)
@@ -132,12 +132,12 @@ export function TaskDrawer(props: TaskDrawerProps) {
   const lit = duePick && (duePick === 'today' ? today : eow) === draft.due ? duePick
     : draft.due === today ? 'today' : draft.due === eow ? 'eow' : null
 
-  const skin = useSkin(feature?.skin)
-  const headerTint = skin ? 'transparent' : feature ? `linear-gradient(135deg, color-mix(in srgb, ${feature.color} 22%, var(--bg-1)), color-mix(in srgb, ${feature.color} 8%, var(--bg-1)))` : 'var(--bg-1)'
+  const skin = useSkin(project?.skin)
+  const headerTint = skin ? 'transparent' : project ? `linear-gradient(135deg, color-mix(in srgb, ${project.color} 22%, var(--bg-1)), color-mix(in srgb, ${project.color} 8%, var(--bg-1)))` : 'var(--bg-1)'
   const savedState = live?.agent_state ?? null
   const stateKey = draft.agent_state ?? 'waiting'
   const subsDone = subtasks.filter((s) => s.done).length
-  const featureModel = feature?.claude_model ? CLAUDE_MODELS.find((m) => m.id === feature.claude_model)?.label : null
+  const projectModel = project?.claude_model ? CLAUDE_MODELS.find((m) => m.id === project.claude_model)?.label : null
   const report = live?.agent_report ?? ''
   const files = live?.files ?? []
 
@@ -153,7 +153,7 @@ export function TaskDrawer(props: TaskDrawerProps) {
           border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)', overflow: 'hidden',
           position: 'relative',
         }}>
-        {/* A skinned feature fills the whole drawer; body and footer then sit on one glass panel. */}
+        {/* A skinned project fills the whole drawer; body and footer then sit on one glass panel. */}
         {skin && <SkinBackdrop skin={skin} />}
         <header style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px 14px 20px', background: headerTint, borderBottom: skin ? 'none' : '1px solid var(--border)' }}>
           <span style={{ flex: 1 }}>
@@ -185,8 +185,8 @@ export function TaskDrawer(props: TaskDrawerProps) {
             {isNew && <TemplatePicker templates={templates} onApply={applyTpl} onManage={() => onOpenTemplates({})} />}
           </div>
 
-          <Field label="Parent feature">
-            <FeaturePicker features={features} value={draft.feature} onChange={(id) => set('feature', id)} />
+          <Field label="Parent project">
+            <ProjectPicker projects={projects} value={draft.project} onChange={(id) => set('project', id)} />
           </Field>
 
           <Field label="Status">
@@ -274,12 +274,12 @@ export function TaskDrawer(props: TaskDrawerProps) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <select className="g-input" value={draft.claude_model ?? ''} aria-label="Claude model"
                 onChange={(e) => set('claude_model', (e.target.value || null) as ModelId | null)}>
-                <option value="">{featureModel ? `Feature: ${featureModel}` : 'No model set'}</option>
+                <option value="">{projectModel ? `Project: ${projectModel}` : 'No model set'}</option>
                 {CLAUDE_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
               </select>
               <select className="g-input" value={draft.claude_effort ?? ''} aria-label="Claude effort"
                 onChange={(e) => set('claude_effort', (e.target.value || null) as Effort | null)}>
-                <option value="">{feature?.claude_effort ? `Feature: ${feature.claude_effort}` : 'No effort set'}</option>
+                <option value="">{project?.claude_effort ? `Project: ${project.claude_effort}` : 'No effort set'}</option>
                 {CLAUDE_EFFORTS.map((x) => <option key={x} value={x}>{x}</option>)}
               </select>
             </div>
@@ -287,7 +287,7 @@ export function TaskDrawer(props: TaskDrawerProps) {
 
           <Field label="Git repo" hint="Where a Buddy worker runs for this task">
             <RepoPicker value={draft.repo_path} onChange={(v) => set('repo_path', v)}
-              emptyLabel={feature?.repo_path ? `Feature: ${repoName(feature.repo_path)}` : 'No repo set'} />
+              emptyLabel={project?.repo_path ? `Project: ${repoName(project.repo_path)}` : 'No repo set'} />
           </Field>
 
           {!isNew && (report || files.length > 0) && (

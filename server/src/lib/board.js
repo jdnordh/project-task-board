@@ -47,17 +47,17 @@ export function matchesSearch(task, q) {
 }
 
 /**
- * Every card the board would show: Done window, then search, then feature filter.
+ * Every card the board would show: Done window, then search, then project filter.
  * @template T
  * @param {T[]} tasks
- * @param {{ search?: string, featureFilter?: string[], now?: Date }} [opts]
+ * @param {{ search?: string, projectFilter?: string[], now?: Date }} [opts]
  * @returns {T[]}
  */
-export function boardTasks(tasks, { search = '', featureFilter = [], now = new Date() } = {}) {
+export function boardTasks(tasks, { search = '', projectFilter = [], now = new Date() } = {}) {
   return tasks.filter(
     (t) =>
       (t.status !== 'done' || inDoneWindow(t, now)) &&
       matchesSearch(t, search) &&
-      (featureFilter.length === 0 || featureFilter.includes(t.feature)),
+      (projectFilter.length === 0 || projectFilter.includes(t.project)),
   );
 }

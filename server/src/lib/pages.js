@@ -7,16 +7,16 @@
 
 export const PAGES = [
   { id: 'board', label: 'Board', icon: 'columns-3' },
-  { id: 'features', label: 'Features', icon: 'layers' },
+  { id: 'projects', label: 'Projects', icon: 'layers' },
   { id: 'notes', label: 'Notes', icon: 'notebook-pen' },
   { id: 'achievements', label: 'Achievements', icon: 'trophy', extras: true },
   { id: 'settings', label: 'Settings', icon: 'settings' },
 ];
 
 /** Turning a page on turns these on too; they stay locked on while it shows. */
-export const PAGE_NEEDS = { board: ['features'] };
+export const PAGE_NEEDS = { board: ['projects'] };
 
-const CORE = ['board', 'features'];
+const CORE = ['board', 'projects'];
 
 export function parseHidden(raw) {
   if (!raw) return [];

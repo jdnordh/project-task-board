@@ -1,5 +1,5 @@
 /**
- * fx.js — picks the feature-completion animation (pure).
+ * fx.js — picks the project-completion animation (pure).
  */
 
 export const FX = [

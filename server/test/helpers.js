@@ -31,10 +31,10 @@ export async function startApi() {
     try { json = JSON.parse(buf.toString('utf8')); } catch { json = buf; }
     return { status: res.status, body: json, headers: res.headers, buf };
   }
-  const feature = async (name = 'Core') => (await api('POST', '/api/features', { name, color: '#38E1FF' })).body;
+  const project = async (name = 'Core') => (await api('POST', '/api/projects', { name, color: '#38E1FF' })).body;
   const close = () => {
     server.close();
     fs.rmSync(tmp, { recursive: true, force: true });
   };
-  return { api, feature, store, db, tmp, base, close };
+  return { api, project, store, db, tmp, base, close };
 }

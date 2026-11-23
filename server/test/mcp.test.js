@@ -4,7 +4,7 @@ import { formatTask } from '../mcp/format-task.js';
 
 test('get_task text lists subtasks by number and ends with the rules', () => {
   const out = formatTask({
-    id: 't1', title: 'Do it', feature_name: 'Core', session_title: 'Core: Do it', user_name: 'Sam', setup_label: '',
+    id: 't1', title: 'Do it', project_name: 'Core', session_title: 'Core: Do it', user_name: 'Sam', setup_label: '',
     status: 'claude', priority: 2, est: 1.5, due: null, desc: 'plain', subtasks: [{ t: 'a', done: true }, { t: 'b', done: false }],
     agent_state: null, agent_note: '', files: [], agent_report: '',
   }).split('\n');
@@ -20,7 +20,7 @@ test('get_task text lists subtasks by number and ends with the rules', () => {
 
 test('get_task text shows the folder when the task has one', () => {
   const out = formatTask({
-    id: 't1', title: 'Do it', feature_name: 'Core', session_title: 'Core: Do it', setup_label: '', repo_path: 'C:/src/app',
+    id: 't1', title: 'Do it', project_name: 'Core', session_title: 'Core: Do it', setup_label: '', repo_path: 'C:/src/app',
     status: 'claude', priority: 2, est: 1, due: null, desc: '', subtasks: [], agent_state: null, agent_note: '', files: [], agent_report: '',
   }).split('\n');
   assert.ok(out.includes('Folder: C:/src/app'));

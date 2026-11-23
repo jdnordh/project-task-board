@@ -11,11 +11,11 @@ import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
 import { genId } from './lib/ids.js';
-import { FEATURE_PALETTE, DEFAULT_EST } from './lib/constants.js';
+import { PROJECT_PALETTE, DEFAULT_EST } from './lib/constants.js';
 import { localDate } from './lib/dates.js';
 
 const SCHEMA = `
-CREATE TABLE IF NOT EXISTS features (
+CREATE TABLE IF NOT EXISTS projects (
   id            TEXT PRIMARY KEY,
   name          TEXT NOT NULL,
   color         TEXT NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS features (
 CREATE TABLE IF NOT EXISTS tasks (
   id            TEXT PRIMARY KEY,
   title         TEXT NOT NULL,
-  feature       TEXT NOT NULL REFERENCES features(id) ON DELETE CASCADE,
+  project       TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   priority      INTEGER NOT NULL DEFAULT 3,
   est           REAL NOT NULL DEFAULT 2,
   due           TEXT,
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS notes (
   id           TEXT PRIMARY KEY,
   title        TEXT NOT NULL,
   meeting_date TEXT NOT NULL,
-  feature_id   TEXT REFERENCES features(id) ON DELETE SET NULL,
+  project_id   TEXT REFERENCES projects(id) ON DELETE SET NULL,
   body_html    TEXT NOT NULL DEFAULT '',
   body_text    TEXT NOT NULL DEFAULT '',
   transcript   TEXT NOT NULL DEFAULT '',
@@ -110,16 +110,58 @@ CREATE TABLE IF NOT EXISTS achievements (
 
 /** Columns added after the first release: [table, column, type]. */
 const ADDED_COLUMNS = [
-  ['features', 'repo_path', 'TEXT'],
+  ['projects', 'repo_path', 'TEXT'],
   ['tasks', 'repo_path', 'TEXT'],
 ];
 
 /** Bring an older database up to the current schema (idempotent). */
 function migrate(db) {
   for (const [table, col, type] of ADDED_COLUMNS) {
-    const has = db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === col);
-    if (!has) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`);
+    if (!hasColumn(db, table, col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`);
   }
+}
+
+const hasTable = (db, name) => !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name);
+const hasColumn = (db, table, col) => db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === col);
+
+/**
+ * "Features" became "projects". Rename the table and columns of a database
+ * made before that, and rewrite the stored JSON and settings that name a
+ * feature, so existing boards keep working. Runs before the schema, so the
+ * `CREATE TABLE IF NOT EXISTS projects` that follows finds the renamed table.
+ * Idempotent; SQLite updates the foreign keys that point at the old table.
+ */
+export function renameFeaturesToProjects(db) {
+  if (!hasTable(db, 'features')) return false;
+  db.exec('BEGIN');
+  try {
+    if (hasTable(db, 'projects')) {
+      // A half-done earlier run: an empty projects table beside the real one.
+      if (db.prepare('SELECT COUNT(*) AS n FROM projects').get().n) throw new Error('both features and projects tables hold rows');
+      db.exec('DROP TABLE projects');
+    }
+    db.exec('ALTER TABLE features RENAME TO projects');
+    if (hasTable(db, 'tasks') && hasColumn(db, 'tasks', 'feature')) db.exec('ALTER TABLE tasks RENAME COLUMN feature TO project');
+    if (hasTable(db, 'notes') && hasColumn(db, 'notes', 'feature_id')) db.exec('ALTER TABLE notes RENAME COLUMN feature_id TO project_id');
+    const moveKey = (table, col) => {
+      if (!hasTable(db, table)) return;
+      db.exec(`UPDATE ${table} SET ${col} = json_remove(json_set(${col}, '$.project', json_extract(${col}, '$.feature')), '$.feature')
+        WHERE json_valid(${col}) AND json_type(${col}, '$.feature') IS NOT NULL`);
+    };
+    moveKey('activity_log', 'data');
+    moveKey('task_templates', 'fields');
+    if (hasTable(db, 'settings')) {
+      db.exec("UPDATE settings SET value = 'projects' WHERE key = 'route' AND value = 'features'");
+      db.exec(`UPDATE settings SET key = 'lastTaskProject' WHERE key = 'lastTaskFeature'
+        AND NOT EXISTS (SELECT 1 FROM settings WHERE key = 'lastTaskProject')`);
+      db.exec(`UPDATE settings SET value = replace(value, '"features"', '"projects"') WHERE key = 'hidden_pages'`);
+    }
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+  return true;
 }
 
 /** Legacy `YYYY-MM-DD HH:MM:SS` (UTC, from datetime('now')) → ISO. */
@@ -146,12 +188,12 @@ function importLegacy(db, legacyPath, log) {
     const tables = new Set(db.prepare("SELECT name FROM legacy.sqlite_master WHERE type='table'").all().map((r) => r.name));
     if (!tables.has('projects') || !tables.has('tasks')) return;
     const projects = db.prepare('SELECT * FROM legacy.projects ORDER BY id').all();
-    const featureId = new Map();
-    const insFeature = db.prepare('INSERT INTO features (id, name, color, sort_order, completed) VALUES (?, ?, ?, ?, ?)');
+    const projectId = new Map();
+    const insProject = db.prepare('INSERT INTO projects (id, name, color, sort_order, completed) VALUES (?, ?, ?, ?, ?)');
     projects.forEach((p, i) => {
-      const id = genId('f-');
-      featureId.set(p.id, id);
-      insFeature.run(id, p.name, p.color || FEATURE_PALETTE[i % FEATURE_PALETTE.length].hex, i + 1, p.completed ? 1 : 0);
+      const id = genId('p-');
+      projectId.set(p.id, id);
+      insProject.run(id, p.name, p.color || PROJECT_PALETTE[i % PROJECT_PALETTE.length].hex, i + 1, p.completed ? 1 : 0);
     });
     const subs = new Map();
     if (tables.has('subtasks')) {
@@ -161,16 +203,16 @@ function importLegacy(db, legacyPath, log) {
       }
     }
     const insTask = db.prepare(`INSERT INTO tasks
-      (id, title, feature, priority, est, status, "desc", desc_html, subtasks, sort_order, created_at, started_at, completed_at)
+      (id, title, project, priority, est, status, "desc", desc_html, subtasks, sort_order, created_at, started_at, completed_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, '', ?, ?, ?, ?, ?)`);
     const tasks = db.prepare('SELECT * FROM legacy.tasks ORDER BY id').all();
     tasks.forEach((t, i) => {
-      const feature = featureId.get(t.project_id);
-      if (!feature) return;
+      const project = projectId.get(t.project_id);
+      if (!project) return;
       const status = LEGACY_STATUS[t.status] ?? 'backlog';
       const started = status === 'progress' || status === 'done' ? legacyTs(t.updated_at ?? t.created_at) : null;
       insTask.run(
-        genId('t'), t.name, feature, Math.min(9, Math.max(1, t.priority ?? 3)), DEFAULT_EST, status,
+        genId('t'), t.name, project, Math.min(9, Math.max(1, t.priority ?? 3)), DEFAULT_EST, status,
         t.notes ?? '', JSON.stringify(subs.get(t.id) ?? []), i + 1,
         legacyTs(t.created_at), started, status === 'done' ? legacyTs(t.done_at ?? t.updated_at) : null,
       );
@@ -186,10 +228,11 @@ export function openDb(dbPath, { legacyPath = null, log = console.log } = {}) {
   const db = new DatabaseSync(dbPath);
   db.exec('PRAGMA journal_mode = WAL');
   db.exec('PRAGMA foreign_keys = ON');
+  renameFeaturesToProjects(db);
   db.exec(SCHEMA);
   migrate(db);
 
-  const empty = db.prepare('SELECT COUNT(*) AS n FROM features').get().n === 0;
+  const empty = db.prepare('SELECT COUNT(*) AS n FROM projects').get().n === 0;
   const fresh = empty && db.prepare('SELECT COUNT(*) AS n FROM settings').get().n === 0;
   if (fresh && legacyPath && fs.existsSync(legacyPath)) {
     try {
@@ -198,8 +241,8 @@ export function openDb(dbPath, { legacyPath = null, log = console.log } = {}) {
       log(`Legacy import failed, starting fresh: ${err.message}`);
     }
   }
-  if (db.prepare('SELECT COUNT(*) AS n FROM features').get().n === 0 && fresh) {
-    db.prepare('INSERT INTO features (id, name, color, sort_order) VALUES (?, ?, ?, 1)').run(genId('f-'), 'General', FEATURE_PALETTE[0].hex);
+  if (db.prepare('SELECT COUNT(*) AS n FROM projects').get().n === 0 && fresh) {
+    db.prepare('INSERT INTO projects (id, name, color, sort_order) VALUES (?, ?, ?, 1)').run(genId('p-'), 'General', PROJECT_PALETTE[0].hex);
   }
   if (db.prepare('SELECT COUNT(*) AS n FROM settings').get().n === 0) {
     const ins = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)');

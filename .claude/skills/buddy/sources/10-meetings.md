@@ -12,10 +12,10 @@ Meetings
 ## Gather
 1. `search_meeting_notes {}` — the last 14 days by meeting date.
 2. `get_meeting_note` for up to 4 notes that have open action items (newest first).
-3. Collect up to 8 open `[ ]` items. Remember each note's feature tag, and any feature names mentioned in
-   the note text: the Features source uses them.
+3. Collect up to 8 open `[ ]` items. Remember each note's project tag, and any project names mentioned in
+   the note text: the Projects source uses them.
 
 ## Write
-- At most 5 lines: `<date> · <title> [Feature] — open: "<item>"`.
+- At most 5 lines: `<date> · <title> [Project] — open: "<item>"`.
 - Suggestion **"Make a task: <item>"** for an open item that no open task already covers (compare with the
   Unfinished-work source's task lines). Several items in one note on one topic → one suggestion.

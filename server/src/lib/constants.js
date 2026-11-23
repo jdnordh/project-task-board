@@ -36,7 +36,7 @@ export function columnLabel(col, userName) {
   return col.label;
 }
 
-export const FEATURE_PALETTE = [
+export const PROJECT_PALETTE = [
   { id: 'cyan',     hex: '#38E1FF', name: 'Cyan' },
   { id: 'violet',   hex: '#B68CFF', name: 'Violet' },
   { id: 'mint',     hex: '#34E5A0', name: 'Mint' },

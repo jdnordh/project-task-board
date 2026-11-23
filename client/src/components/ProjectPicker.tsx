@@ -1,27 +1,27 @@
 /**
- * FeaturePicker — single-select feature picker with search. Completed
- * features are hidden unless the task already uses one.
+ * ProjectPicker — single-select project picker with search. Completed
+ * projects are hidden unless the task already uses one.
  */
 
 import { useState } from 'react'
-import type { Feature } from '../types'
+import type { Project } from '../types'
 import { Icon } from './Icon'
 import { usePopover } from './ui'
-import { FeatureDot } from './skin'
+import { ProjectDot } from './skin'
 
-export function FeaturePicker({ features, value, onChange }: { features: Feature[]; value: string; onChange: (id: string) => void }) {
+export function ProjectPicker({ projects, value, onChange }: { projects: Project[]; value: string; onChange: (id: string) => void }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const ref = usePopover(open, () => setOpen(false))
-  const current = features.find((f) => f.id === value)
-  const list = features.filter((f) => (!f.completed || f.id === value) && f.name.toLowerCase().includes(q.trim().toLowerCase()))
+  const current = projects.find((f) => f.id === value)
+  const list = projects.filter((f) => (!f.completed || f.id === value) && f.name.toLowerCase().includes(q.trim().toLowerCase()))
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button type="button" className="g-input" onClick={() => { setQ(''); setOpen((o) => !o) }} aria-haspopup="listbox" aria-expanded={open}
         style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', textAlign: 'left' }}>
-        {current ? <FeatureDot feature={current} size={9} /> : null}
-        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{current?.name ?? 'Pick a feature'}</span>
+        {current ? <ProjectDot project={current} size={9} /> : null}
+        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{current?.name ?? 'Pick a project'}</span>
         <Icon name="chevron-down" size={14} color="var(--fg-3)" />
       </button>
       {open && (
@@ -30,7 +30,7 @@ export function FeaturePicker({ features, value, onChange }: { features: Feature
           border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-sm)', boxShadow: 'var(--shadow-lg)', overflow: 'hidden',
         }}>
           <div style={{ padding: 8, borderBottom: '1px solid var(--border)' }}>
-            <input autoFocus className="g-input" placeholder="Search features…" value={q} onChange={(e) => setQ(e.target.value)}
+            <input autoFocus className="g-input" placeholder="Search projects…" value={q} onChange={(e) => setQ(e.target.value)}
               style={{ padding: '7px 10px', fontSize: 13 }}
               onKeyDown={(e) => { if (e.key === 'Enter' && list[0]) { e.preventDefault(); onChange(list[0].id); setOpen(false) } }} />
           </div>
@@ -43,7 +43,7 @@ export function FeaturePicker({ features, value, onChange }: { features: Feature
                   width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', border: 'none', borderRadius: 8,
                   background: f.id === value ? 'var(--accent-tint)' : 'transparent', color: 'var(--fg-1)', cursor: 'pointer', fontSize: 13.5, textAlign: 'left',
                 }}>
-                <FeatureDot feature={f} size={8} />
+                <ProjectDot project={f} size={8} />
                 <span style={{ flex: 1 }}>{f.name}</span>
                 {f.id === value && <Icon name="check" size={14} color="var(--accent)" />}
               </button>

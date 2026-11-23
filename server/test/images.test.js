@@ -65,11 +65,11 @@ test('POST /api/images refuses non-images and files over the cap', async () => {
 });
 
 test('task images list follows the description; report-image uploads a local file', async () => {
-  const f = await t.feature();
+  const f = await t.project();
   const a = (await t.api('POST', '/api/images', PNG, { 'Content-Type': 'image/png' })).body;
   const b = (await t.api('POST', '/api/images', JPEG, { 'Content-Type': 'image/jpeg' })).body;
   const task = (await t.api('POST', '/api/tasks', {
-    title: 'Pics', feature: f.id, desc_html: `<p>see <img src="${b.url}"></p><p><img src="${a.url}"></p>`,
+    title: 'Pics', project: f.id, desc_html: `<p>see <img src="${b.url}"></p><p><img src="${a.url}"></p>`,
   })).body;
   assert.equal(task.desc, 'see [image]\n[image]');
   const list = (await t.api('GET', `/api/tasks/${task.id}/images`)).body;

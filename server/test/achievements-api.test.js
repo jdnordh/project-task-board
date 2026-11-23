@@ -7,8 +7,8 @@ import { createAchievements } from '../src/achievements.js';
 test('check unlocks from the log, is sticky, and records hints only when seen', () => {
   const store = createStore(openDb(':memory:', { log: () => {} }));
   const ach = createAchievements(store);
-  const f = store.listFeatures()[0];
-  const t = store.createTask({ title: 'x', feature: f.id, status: 'progress', est: 1 });
+  const f = store.listProjects()[0];
+  const t = store.createTask({ title: 'x', project: f.id, status: 'progress', est: 1 });
   // Backdate the start so the 30s rule passes.
   store.db.prepare("UPDATE activity_log SET at = '2020-01-01T00:00:00.000Z' WHERE ref_id = ?").run(t.id);
   store.updateTask(t.id, { status: 'done' });

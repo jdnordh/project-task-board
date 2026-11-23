@@ -86,7 +86,7 @@ export function AchievementsPage({ data, target }: { data: AchievementsPayload |
   return (
     <div style={{ maxWidth: 1000 }}>
       <PageHeader title="Achievements"
-        subtitle="Earned by real work: tasks finished through In Progress, deadlines kept, estimates you hit. Points unlock camos for your features." />
+        subtitle="Earned by real work: tasks finished through In Progress, deadlines kept, estimates you hit. Points unlock camos for your projects." />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
         <Stat value={data.points} label={`of ${data.total_points} pts`} />

@@ -2,7 +2,7 @@
  * skins.js — camo and animated skin catalogue (pure data, browser-safe).
  *
  * Camos unlock by total achievement points. Each animated skin is unlocked
- * by one secret achievement. `hex` is what features.color stores, so
+ * by one secret achievement. `hex` is what projects.color stores, so
  * colour-only surfaces still work.
  */
 

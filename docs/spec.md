@@ -1,4 +1,4 @@
-> **Grove note:** this is the Cadence rebuild spec Grove was built from (2026-10-28). In Grove, Cadence identifiers are renamed (`cadence-agent` → `grove-agent`, `scripts/cadence.js` → `scripts/grove.js`, `CADENCE_TOKEN` → `GROVE_TOKEN`, `cd-mutation` → `grove-mutation`, `cd-idle` → `g-idle`), the app is dark-only (no theme toggle), and the achievement catalogue/camo thresholds are as in `server/src/lib/achievements.js` and `skins.js`. See `docs/decisions.md` ADR-006..011.
+> **Grove note:** this is the Cadence rebuild spec Grove was built from (2026-10-28). In Grove, Cadence identifiers are renamed (`cadence-agent` → `grove-agent`, `scripts/cadence.js` → `scripts/grove.js`, `CADENCE_TOKEN` → `GROVE_TOKEN`, `cd-mutation` → `grove-mutation`, `cd-idle` → `g-idle`), the app is dark-only (no theme toggle), and the achievement catalogue/camo thresholds are as in `server/src/lib/achievements.js` and `skins.js`. See `docs/decisions.md` ADR-006..011. Since ADR-012, Grove calls features **projects** (UI, API `/api/projects`, DB table `projects`, MCP tools `*_project`); this spec keeps the old word.
 
 # Cadence — Rebuild Spec (Board, Features, Achievements, Settings)
 
